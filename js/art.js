@@ -5,8 +5,8 @@ const Art = {
     SMOKE_CHARACTERS: ['@', '%', '#', '*', '+', ':', '.'],
 
     PLANE_SPRITES: {
-        fighter: { text: '0̳̅=/̸̚', offsetX: 0 },
-        bomber: { text: '0̳̅0̳̅==/̸̚', offsetX: -15 }
+        fighter: { text: '0̼̿==♥', offsetX: 0 },
+        bomber: { text: '0̼̿0̼̿====♦', offsetX: -15 }
     },
 
     VEHICLE_SPRITES: {
