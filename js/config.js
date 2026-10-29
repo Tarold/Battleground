@@ -72,7 +72,7 @@ const ARTILLERY_EXPLOSION_RADIUS = 72;
 const PLANE_STATS = {
     fighter: {
         health: 3, speed: 180, turnRate: 3.5, wobble: 0.48,
-        trailInterval: 0.04, fireInterval: 0.13,
+        trailInterval: 0.04, fireInterval: 0.13, rocketReload: 4.5,
         halfWidth: 20, halfHeight: 10
     },
     bomber: {
@@ -82,12 +82,33 @@ const PLANE_STATS = {
     }
 };
 
-const BOMB_DAMAGE = 7;
-const BOMB_RADIUS = 78;
-const BOMB_RELOAD = 1.4;
+// Килимове бомбардування: серія дрібніших бомб уздовж курсу бомбардувальника.
+const CARPET_BOMB_COUNT = 6;
+const CARPET_BOMB_INTERVAL = 0.28;
+const CARPET_BOMB_DAMAGE = 4;
+const CARPET_BOMB_RADIUS = 54;
+const CARPET_RELOAD = 4;
 const BOMB_HORIZONTAL_FACTOR = 0.65;
 const BOMB_TARGETING_TOLERANCE = 95;
 const PLANE_GUN_SPEED = 470;
+
+// Ракети літаків: повітря-повітря (самонавідні) та повітря-земля (прямі).
+const ROCKET_LAUNCH_SPEED = 170;
+const AIR_ROCKET_DAMAGE = 3;
+const AIR_ROCKET_RANGE = 520;
+const AIR_ROCKET_TURN_RATE = 2.6;
+const AIR_ROCKET_BLAST_RADIUS = 48;
+const GROUND_ROCKET_DAMAGE = 4;
+const GROUND_ROCKET_RANGE = 480;
+const GROUND_ROCKET_RADIUS = 50;
+
+// Велика зенітна ракета наземного ЗРК.
+const AA_MISSILE_RANGE = 580;
+const AA_MISSILE_RELOAD = 7;
+const AA_MISSILE_SPEED = 250;
+const AA_MISSILE_TURN_RATE = 2.2;
+const AA_MISSILE_DAMAGE = 5;
+const AA_MISSILE_BLAST_RADIUS = 75;
 const PLANE_FALL_GRAVITY = 240;
 
 // ---------------------------------------------------------------------------

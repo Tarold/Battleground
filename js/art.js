@@ -139,6 +139,10 @@ const Art = {
     // --- Projectiles -------------------------------------------------------
 
     projectileSymbol(projectile) {
+        if (projectile.rocket) {
+            return projectile.big ? '=##>' : '=>';
+        }
+
         if (projectile.bomb) {
             return '<●>';
         }
@@ -151,6 +155,10 @@ const Art = {
     },
 
     projectileColor(projectile) {
+        if (projectile.rocket) {
+            return projectile.big ? '#ff5533' : '#ffb347';
+        }
+
         if (projectile.bomb) {
             return '#ff9933';
         }
@@ -163,7 +171,7 @@ const Art = {
         context.translate(projectile.x, projectile.y);
         context.rotate(projectile.angle);
         context.fillStyle = this.projectileColor(projectile);
-        context.font = 'bold 15px monospace';
+        context.font = projectile.big ? 'bold 19px monospace' : 'bold 15px monospace';
         context.fillText(this.projectileSymbol(projectile), -4, 4);
         context.restore();
     },

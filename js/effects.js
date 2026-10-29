@@ -49,12 +49,12 @@ function spawnSmoke(x, y, velocityX, velocityY, fire = false, lifeScale = 1) {
 }
 
 // Висока вертикальна хмара важкої бомби: стовп диму, що росте вгору, з "шапкою".
-function spawnBombCloud(x, y) {
-    const stemCount = 28;
-    const capCount = 22;
+function spawnBombCloud(x, y, scale = 1) {
+    const stemCount = Math.round(28 * scale);
+    const capCount = Math.round(22 * scale);
 
     for (let index = 0; index < stemCount; index++) {
-        const height = index / (stemCount - 1);
+        const height = index / Math.max(1, stemCount - 1);
         const smoke = spawnSmoke(
             x + (Math.random() - 0.5) * 10,
             y,
@@ -109,6 +109,21 @@ function damageArea(x, radius, damage, team, targetLane) {
 
         if (distance < radius) {
             unit.takeDamage(damage * (1 - distance / radius * 0.6));
+        }
+    }
+}
+
+// Шкода по літаках у радіусі вибуху ракети (team -1 зачіпає всіх).
+function damagePlanesArea(x, y, radius, damage, team) {
+    for (const plane of battle.planes) {
+        if (plane.team === team || plane.state !== PLANE_FLYING) {
+            continue;
+        }
+
+        const distance = Math.hypot(plane.x - x, plane.y - y);
+
+        if (distance < radius) {
+            plane.takeDamage(damage * (1 - distance / radius * 0.5));
         }
     }
 }

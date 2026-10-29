@@ -14,6 +14,10 @@ class Plane {
         this.health = 1;
         this.reload = 0;
         this.bombReload = 0;
+        this.rocketReload = 0;
+        this.carpetBombsLeft = 0;
+        this.carpetTimer = 0;
+        this.carpetLane = 0;
         this.smokeTimer = 0;
         this.respawnTimer = 0;
         this.phase = Math.random() * 10;
@@ -38,6 +42,8 @@ class Plane {
         this.velocityY = 0;
         this.reload = 0.5;
         this.bombReload = 1.5;
+        this.rocketReload = 2 + Math.random() * 2;
+        this.carpetBombsLeft = 0;
         this.smokeTimer = 0;
         this.flightLane = Math.floor(Math.random() * LANE_OFFSETS.length);
         this.crashLane = -1;
@@ -105,8 +111,10 @@ class Plane {
 
         this.reload -= deltaTime;
         this.bombReload -= deltaTime;
+        this.rocketReload -= deltaTime;
 
-        this.tryDropBomb();
+        this.tryDropBomb(deltaTime);
+        this.tryLaunchRocket();
         this.tryShoot();
     }
 
@@ -151,8 +159,18 @@ class Plane {
         return bombingTarget;
     }
 
-    tryDropBomb() {
-        if (!this.bomber || this.bombReload > 0) {
+    // Бомбардувальник, помітивши ціль, скидає серію бомб уздовж курсу.
+    tryDropBomb(deltaTime) {
+        if (!this.bomber) {
+            return;
+        }
+
+        if (this.carpetBombsLeft > 0) {
+            this.continueCarpetBombing(deltaTime);
+            return;
+        }
+
+        if (this.bombReload > 0) {
             return;
         }
 
@@ -162,8 +180,25 @@ class Plane {
             return;
         }
 
-        this.bombReload = BOMB_RELOAD;
+        this.carpetBombsLeft = CARPET_BOMB_COUNT;
+        this.carpetTimer = 0;
+        this.carpetLane = bombingTarget.lane;
         this.flightLane = bombingTarget.lane;
+    }
+
+    continueCarpetBombing(deltaTime) {
+        this.carpetTimer -= deltaTime;
+
+        if (this.carpetTimer > 0) {
+            return;
+        }
+
+        this.carpetTimer = CARPET_BOMB_INTERVAL;
+        this.carpetBombsLeft--;
+
+        if (this.carpetBombsLeft === 0) {
+            this.bombReload = CARPET_RELOAD;
+        }
 
         Projectile.fire({
             x: this.x,
@@ -171,18 +206,67 @@ class Plane {
             velocityX: this.velocityX * BOMB_HORIZONTAL_FACTOR,
             velocityY: 20,
             team: this.team,
-            damage: BOMB_DAMAGE,
+            damage: CARPET_BOMB_DAMAGE,
             heavy: true,
             bomb: true,
             gravity: GRAVITY,
-            explosionRadius: BOMB_RADIUS,
-            targetLane: bombingTarget.lane
+            explosionRadius: CARPET_BOMB_RADIUS,
+            targetLane: this.carpetLane
+        });
+    }
+
+    // --- Rockets -----------------------------------------------------------
+
+    // Винищувач пускає самонавідну ракету по літаку або пряму по наземній цілі.
+    tryLaunchRocket() {
+        if (this.bomber || this.rocketReload > 0) {
+            return;
+        }
+
+        const enemyPlane = this.findPlaneInSights(AIR_ROCKET_RANGE, 0.88);
+        let targetLane = -1;
+
+        if (!enemyPlane) {
+            targetLane = this.findGroundLaneInSights(GROUND_ROCKET_RANGE, 0.85);
+
+            if (targetLane < 0) {
+                return;
+            }
+
+            this.flightLane = targetLane;
+        }
+
+        this.rocketReload = this.stats.rocketReload + Math.random();
+
+        const forwardX = Math.cos(this.angle);
+        const forwardY = Math.sin(this.angle);
+        const airToAir = enemyPlane !== null;
+
+        Projectile.fire({
+            x: this.x + forwardX * 25,
+            y: this.y + forwardY * 25,
+            velocityX: this.velocityX + forwardX * ROCKET_LAUNCH_SPEED,
+            velocityY: this.velocityY + forwardY * ROCKET_LAUNCH_SPEED,
+            team: this.team,
+            damage: airToAir ? AIR_ROCKET_DAMAGE : GROUND_ROCKET_DAMAGE,
+            heavy: true,
+            rocket: true,
+            homingTarget: enemyPlane,
+            turnRate: airToAir ? AIR_ROCKET_TURN_RATE : 0,
+            planeBlastRadius: airToAir ? AIR_ROCKET_BLAST_RADIUS : 0,
+            explosionRadius: airToAir ? 0 : GROUND_ROCKET_RADIUS,
+            life: 4,
+            targetLane
         });
     }
 
     // --- Machine gun -------------------------------------------------------
 
-    hasEnemyPlaneInSights() {
+    // Найкраще вирівняний ворожий літак у секторі прицілу або null.
+    findPlaneInSights(maximumDistance, minimumAlignment) {
+        let bestAlignment = minimumAlignment;
+        let bestPlane = null;
+
         for (const enemy of battle.planes) {
             if (enemy.team === this.team || enemy.state !== PLANE_FLYING) {
                 continue;
@@ -190,17 +274,18 @@ class Plane {
 
             const { distance, alignment } = Movement.alignment(this, enemy.x, enemy.y);
 
-            if (distance > 1 && distance < 350 && alignment > 0.93) {
-                return true;
+            if (distance > 1 && distance < maximumDistance && alignment > bestAlignment) {
+                bestAlignment = alignment;
+                bestPlane = enemy;
             }
         }
 
-        return false;
+        return bestPlane;
     }
 
     // Повертає лінію найкраще вирівняної наземної цілі або -1, якщо цілі немає.
-    findGroundLaneInSights() {
-        let bestAlignment = 0.94;
+    findGroundLaneInSights(maximumDistance = 370, minimumAlignment = 0.94) {
+        let bestAlignment = minimumAlignment;
         let bestLane = -1;
 
         for (const unit of battle.groundUnits) {
@@ -210,7 +295,7 @@ class Plane {
 
             const { distance, alignment } = Movement.alignment(this, unit.x, unit.y - 7);
 
-            if (distance <= 1 || distance >= 370) {
+            if (distance <= 1 || distance >= maximumDistance) {
                 continue;
             }
 
@@ -230,7 +315,7 @@ class Plane {
 
         let targetLane = -1;
 
-        if (!this.hasEnemyPlaneInSights()) {
+        if (!this.findPlaneInSights(350, 0.93)) {
             targetLane = this.findGroundLaneInSights();
 
             if (targetLane < 0) {

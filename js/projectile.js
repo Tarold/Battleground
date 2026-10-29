@@ -41,6 +41,13 @@ class Projectile {
         this.heavy = false;
         this.bomb = false;
         this.shell = false;
+        this.rocket = false;
+        this.big = false;
+        this.homingTarget = null;
+        this.turnRate = 0;
+        this.speed = 0;
+        this.planeBlastRadius = 0;
+        this.trailTimer = 0;
         this.gravity = 0;
         this.explosionRadius = 0;
         this.impactY = 0;
@@ -58,6 +65,8 @@ class Projectile {
     launch({
         x, y, velocityX, velocityY, team, damage,
         heavy = false, bomb = false, shell = false,
+        rocket = false, big = false, homingTarget = null, turnRate = 0,
+        planeBlastRadius = 0, life = null,
         gravity = 0, explosionRadius = 0, targetLane = -1
     }) {
         this.active = true;
@@ -73,19 +82,36 @@ class Projectile {
         this.heavy = heavy;
         this.bomb = bomb;
         this.shell = shell;
+        this.rocket = rocket;
+        this.big = big;
+        this.homingTarget = homingTarget;
+        this.turnRate = turnRate;
+        this.speed = Math.hypot(velocityX, velocityY);
+        this.planeBlastRadius = planeBlastRadius;
+        this.trailTimer = 0;
         this.gravity = gravity;
         this.explosionRadius = explosionRadius;
         this.targetLane = targetLane;
         this.impactY = world.impactLevel(targetLane);
-        this.life = shell || bomb ? 10 : 3;
+        this.life = life ?? (shell || bomb ? 10 : 3);
     }
 
     update(deltaTime) {
         this.life -= deltaTime;
 
+        if (this.life <= 0 && this.rocket) {
+            this.detonate();
+            return;
+        }
+
         if (this.life <= 0 || Movement.isProjectileOutOfBounds(this)) {
             this.active = false;
             return;
+        }
+
+        if (this.rocket) {
+            Movement.guideRocket(this, deltaTime);
+            this.emitRocketTrail(deltaTime);
         }
 
         Movement.stepProjectile(this, deltaTime);
@@ -100,9 +126,34 @@ class Projectile {
         }
     }
 
+    emitRocketTrail(deltaTime) {
+        this.trailTimer -= deltaTime;
+
+        if (this.trailTimer > 0) {
+            return;
+        }
+
+        this.trailTimer = this.big ? 0.02 : 0.035;
+        spawnSmoke(
+            this.x - Math.cos(this.angle) * 10,
+            this.y - Math.sin(this.angle) * 10,
+            0, 0, true, this.big ? 0.9 : 0.6
+        );
+    }
+
     hitPlane() {
         for (const plane of battle.planes) {
             if (plane.team === this.team || plane.state !== PLANE_FLYING) {
+                continue;
+            }
+
+            // Ракета з бойовою частиною проти літаків має радіо-підрив поблизу цілі.
+            if (this.rocket && this.planeBlastRadius > 0) {
+                if (Math.hypot(plane.x - this.x, plane.y - this.y) < this.planeBlastRadius * 0.55) {
+                    this.detonate();
+                    return true;
+                }
+
                 continue;
             }
 
@@ -152,14 +203,35 @@ class Projectile {
         return false;
     }
 
+    detonateRocket() {
+        spawnExplosion(this.x, this.y, this.big ? 36 : 16);
+
+        if (this.big) {
+            spawnBombCloud(this.x, this.y, 0.4);
+        }
+
+        if (this.planeBlastRadius > 0) {
+            damagePlanesArea(this.x, this.y, this.planeBlastRadius, this.damage, this.team);
+        }
+
+        if (this.explosionRadius > 0) {
+            damageArea(this.x, this.explosionRadius, this.damage, this.team, this.targetLane);
+        }
+    }
+
     detonate() {
         this.active = false;
+
+        if (this.rocket) {
+            this.detonateRocket();
+            return;
+        }
 
         if (this.explosionRadius > 0) {
             spawnExplosion(this.x, this.y, this.bomb ? 30 : 24);
 
             if (this.bomb) {
-                spawnBombCloud(this.x, this.y);
+                spawnBombCloud(this.x, this.y, 0.45);
             }
 
             damageArea(this.x, this.explosionRadius, this.damage, this.team, this.targetLane);

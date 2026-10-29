@@ -31,6 +31,32 @@ const Movement = {
         projectile.angle = Math.atan2(projectile.velocityY, projectile.velocityX);
     },
 
+    // Самонавідна ракета: повертає вектор швидкості до цілі, зберігаючи швидкість.
+    guideRocket(rocket, deltaTime) {
+        const target = rocket.homingTarget;
+
+        if (!target) {
+            return;
+        }
+
+        if (target.state !== PLANE_FLYING) {
+            rocket.homingTarget = null;
+            return;
+        }
+
+        const currentAngle = Math.atan2(rocket.velocityY, rocket.velocityX);
+        const desiredAngle = Math.atan2(target.y - rocket.y, target.x - rocket.x);
+        const angleDifference = Math.atan2(
+            Math.sin(desiredAngle - currentAngle),
+            Math.cos(desiredAngle - currentAngle)
+        );
+        const maximumTurn = rocket.turnRate * deltaTime;
+        const heading = currentAngle + clamp(angleDifference, -maximumTurn, maximumTurn);
+
+        rocket.velocityX = Math.cos(heading) * rocket.speed;
+        rocket.velocityY = Math.sin(heading) * rocket.speed;
+    },
+
     isProjectileOutOfBounds(projectile) {
         return projectile.x < -100 || projectile.x > world.width + 100 ||
             projectile.y > world.height + 100;

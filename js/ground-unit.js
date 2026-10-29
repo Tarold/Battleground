@@ -10,6 +10,7 @@ class GroundUnit {
         this.y = 0;
         this.health = 1;
         this.reload = 0;
+        this.missileReload = 0;
         this.animationPhase = 0;
         this.aimAngle = 0;
         this.moving = false;
@@ -57,6 +58,7 @@ class GroundUnit {
         this.y = world.laneLevel(lane);
         this.health = this.stats.health;
         this.reload = 0.3 + Math.random();
+        this.missileReload = 2 + Math.random() * 3;
         this.animationPhase = Math.random() * 10;
         this.aimAngle = team === 0 ? -0.7 : -Math.PI + 0.7;
         this.moving = false;
@@ -78,7 +80,12 @@ class GroundUnit {
     update(deltaTime) {
         this.y = world.laneLevel(this.lane);
         this.reload -= deltaTime;
+        this.missileReload -= deltaTime;
         this.moving = false;
+
+        if (this.type === ANTIAIRCRAFT) {
+            this.tryLaunchMissile();
+        }
 
         const { target, airborne } = this.selectTarget();
 
@@ -145,9 +152,9 @@ class GroundUnit {
         return nearestTarget;
     }
 
-    findAirTarget() {
+    findAirTarget(range = UNIT_STATS[ANTIAIRCRAFT].range) {
         let nearestTarget = null;
-        let nearestDistance = UNIT_STATS[ANTIAIRCRAFT].range;
+        let nearestDistance = range;
 
         for (const plane of battle.planes) {
             if (plane.team === this.team || plane.state !== PLANE_FLYING) {
@@ -192,6 +199,43 @@ class GroundUnit {
         });
 
         spawnSmoke(muzzleX, muzzleY, Math.cos(this.aimAngle) * 25, -15, heavy, 0.35);
+    }
+
+    // Велика самонавідна ракета: стартує майже вертикально, потім наводиться.
+    tryLaunchMissile() {
+        if (this.missileReload > 0) {
+            return;
+        }
+
+        const target = this.findAirTarget(AA_MISSILE_RANGE);
+
+        if (!target) {
+            return;
+        }
+
+        const direction = this.team === 0 ? 1 : -1;
+        const launchAngle = -Math.PI / 2 + direction * 0.35;
+        const launchY = this.y - 16;
+
+        this.missileReload = AA_MISSILE_RELOAD + Math.random() * 1.5;
+
+        Projectile.fire({
+            x: this.x,
+            y: launchY,
+            velocityX: Math.cos(launchAngle) * AA_MISSILE_SPEED,
+            velocityY: Math.sin(launchAngle) * AA_MISSILE_SPEED,
+            team: this.team,
+            damage: AA_MISSILE_DAMAGE,
+            heavy: true,
+            rocket: true,
+            big: true,
+            homingTarget: target,
+            turnRate: AA_MISSILE_TURN_RATE,
+            planeBlastRadius: AA_MISSILE_BLAST_RADIUS,
+            life: 6
+        });
+
+        spawnExplosion(this.x, launchY, 8);
     }
 
     draw(time) {
