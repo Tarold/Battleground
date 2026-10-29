@@ -24,6 +24,11 @@ class GroundUnit {
         return UNIT_STATS[this.type];
     }
 
+    // Скільки вбивств отримує той, хто знищив цього юніта.
+    get killValue() {
+        return this.perk?.killValue ?? this.stats.killValue;
+    }
+
     // Перки легенди або null, якщо юніт звичайний.
     get perk() {
         return this.legendary ? this.stats.legend : null;
@@ -85,7 +90,7 @@ class GroundUnit {
             this.destroy();
 
             if (attacker && attacker.team !== this.team) {
-                attacker.addKill();
+                attacker.addKill(this.killValue);
             }
         }
     }
@@ -131,6 +136,27 @@ class GroundUnit {
 
         if (!target) {
             this.advance(deltaTime);
+            return;
+        }
+
+        if (this.type === ANTIAIRCRAFT) {
+            // Башта зенітки повертається з обмеженою швидкістю і стріляє, лише навівшись на ціль.
+            const muzzleY = this.y - 13;
+            const shot = Movement.groundShot(this, target, muzzleY, airborne);
+            const desiredAngle = Math.atan2(shot.velocityY, shot.velocityX);
+            const turretSpeed = AA_TURRET_SPEED * (this.perk?.turretFactor ?? 1);
+
+            this.aimAngle = Movement.turnToward(this.aimAngle, desiredAngle, turretSpeed * deltaTime);
+
+            const error = Math.abs(Math.atan2(
+                Math.sin(desiredAngle - this.aimAngle),
+                Math.cos(desiredAngle - this.aimAngle)
+            ));
+
+            if (this.reload <= 0 && error < AA_TURRET_TOLERANCE) {
+                this.fire(target, airborne);
+            }
+
             return;
         }
 
@@ -231,7 +257,17 @@ class GroundUnit {
         const muzzleY = this.y - (this.type === INFANTRY ? 7 : 13);
         const aim = Movement.groundShot(this, target, muzzleY, airborne);
 
-        this.aimAngle = Math.atan2(aim.velocityY, aim.velocityX);
+        if (this.type === ANTIAIRCRAFT) {
+            // Зенітка стріляє туди, куди реально дивиться ствол.
+            const speed = Math.hypot(aim.velocityX, aim.velocityY);
+            const angle = this.aimAngle + (Math.random() - 0.5) * 0.018;
+
+            aim.velocityX = Math.cos(angle) * speed;
+            aim.velocityY = Math.sin(angle) * speed;
+        } else {
+            this.aimAngle = Math.atan2(aim.velocityY, aim.velocityX);
+        }
+
         this.reload = this.stats.reload + Math.random() * 0.15;
 
         const muzzleX = this.x + Math.cos(this.aimAngle) * 19;

@@ -34,6 +34,7 @@ const battle = {
     banners: Array.from({ length: 8 }, () => new Banner()),
     slowTimer: 0,
     flash: 0,
+    showScores: false,
     spawners: Array.from({ length: LANE_OFFSETS.length * 2 }, (_, index) =>
         new GroundSpawner(index % 2, Math.floor(index / 2))),
 
@@ -107,9 +108,45 @@ const battle = {
             }
         }
 
+        if (this.showScores) {
+            Art.drawScores([this.topScores(0), this.topScores(1)]);
+        }
+
         if (this.flash > 0) {
             Art.drawFlash(this.flash);
         }
+    },
+
+    // Найкращий рахунок по кожному типу сутності команди: kills / потрібно до легенди.
+    topScores(team) {
+        const rows = UNIT_STATS.map(stats => ({
+            name: stats.name, kills: 0, needed: stats.legend.kills, legendary: false
+        }));
+
+        for (const kind of ['fighter', 'bomber']) {
+            rows.push({
+                name: PLANE_STATS[kind].name, kills: 0,
+                needed: PLANE_STATS[kind].legend.kills, legendary: false
+            });
+        }
+
+        for (const unit of this.groundUnits) {
+            if (unit.active && unit.team === team) {
+                const row = rows[unit.type];
+                row.kills = Math.max(row.kills, unit.kills);
+                row.legendary = row.legendary || unit.legendary;
+            }
+        }
+
+        for (const plane of this.planes) {
+            if (plane.team === team && plane.state !== PLANE_RESPAWNING) {
+                const row = rows[UNIT_STATS.length + (plane.bomber ? 1 : 0)];
+                row.kills = Math.max(row.kills, plane.kills);
+                row.legendary = row.legendary || plane.legendary;
+            }
+        }
+
+        return rows;
     },
 
     // Початкові групи теж відрізняються чисельністю, складом і розташуванням.
@@ -200,6 +237,13 @@ function loop(now) {
 }
 
 window.addEventListener('resize', () => battle.handleResize());
+
+// Клавіша 1 вмикає/вимикає таблицю рахунку до легенди.
+window.addEventListener('keydown', event => {
+    if (event.key === '1' && !event.repeat) {
+        battle.showScores = !battle.showScores;
+    }
+});
 
 battle.deployInitialForces();
 requestAnimationFrame(loop);

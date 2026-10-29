@@ -236,6 +236,35 @@ const Art = {
         context.restore();
     },
 
+    // Таблиця "найкращий рахунок / потрібно до легенди" для обох команд.
+    drawScores(teams) {
+        const lineHeight = 20;
+        const format = value => Number.isInteger(value) ? String(value) : value.toFixed(1);
+
+        context.save();
+        context.font = 'bold 14px monospace';
+        context.textBaseline = 'top';
+
+        teams.forEach((rows, team) => {
+            const x = team === 0 ? 16 : world.width - 16;
+
+            context.textAlign = team === 0 ? 'left' : 'right';
+            context.fillStyle = TEAM_COLORS[team];
+            context.fillText(team === 0 ? 'ALPHA — TOP SCORE' : 'OMEGA — TOP SCORE', x, 14);
+
+            rows.forEach((row, index) => {
+                const score = row.legendary
+                    ? '★ LEGEND'
+                    : format(Math.min(row.kills, row.needed)) + '/' + format(row.needed);
+
+                context.fillStyle = row.legendary ? LEGEND_COLOR : TEAM_COLORS[team];
+                context.fillText(row.name + ' ' + score, x, 38 + index * lineHeight);
+            });
+        });
+
+        context.restore();
+    },
+
     // Білий спалах на весь екран (ядерний вибух).
     drawFlash(amount) {
         context.save();

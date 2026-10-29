@@ -19,6 +19,13 @@ const Movement = {
         unit.y = world.laneLevel(unit.lane);
     },
 
+    // Повертає кут current до desired не більше ніж на maximumStep.
+    turnToward(current, desired, maximumStep) {
+        const difference = Math.atan2(Math.sin(desired - current), Math.cos(desired - current));
+
+        return current + clamp(difference, -maximumStep, maximumStep);
+    },
+
     // --- Projectiles and smoke ---------------------------------------------
 
     stepProjectile(projectile, deltaTime) {
@@ -86,13 +93,20 @@ const Movement = {
             plane.targetAngle = 0;
         }
 
-        const wave = Math.sin(time * 1.6 + plane.phase) * stats.wobble;
-        let desiredAngle = plane.targetAngle + wave;
+        // У погоні та при захопленні цілі хвиля майже зникає, і літак іде на ціль.
+        const steadiness = clamp(plane.lockTime / LOCK_TIME, 0, 1);
+        const inTurnZone = plane.x > world.width - horizontalMargin || plane.x < horizontalMargin;
+        let pursuing = plane.pursuitAngle !== null && !inTurnZone;
+        const waveScale = (pursuing ? PURSUIT_WOBBLE : 1) * (1 - steadiness * LOCK_WOBBLE_DAMPING);
+        const wave = Math.sin(time * 1.6 + plane.phase) * stats.wobble * waveScale;
+        let desiredAngle = (pursuing ? plane.pursuitAngle : plane.targetAngle) + wave;
 
         if (plane.y > floor - 100) {
             desiredAngle = Math.cos(plane.angle) > 0 ? -0.65 : Math.PI + 0.65;
+            pursuing = false;
         } else if (plane.y < 55) {
             desiredAngle = Math.cos(plane.angle) > 0 ? 0.65 : Math.PI - 0.65;
+            pursuing = false;
         }
 
         const angleDifference = Math.atan2(
@@ -100,7 +114,8 @@ const Movement = {
             Math.cos(desiredAngle - plane.angle)
         );
 
-        plane.angle += angleDifference * deltaTime * stats.turnRate;
+        // У погоні розворот повільніший, щоб літак не закручувався навколо цілі.
+        plane.angle += angleDifference * deltaTime * stats.turnRate * (pursuing ? PURSUIT_TURN_FACTOR : 1);
     },
 
     flyPlane(plane, deltaTime) {

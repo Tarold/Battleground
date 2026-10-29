@@ -14,6 +14,11 @@ class Plane {
         this.health = 1;
         this.kills = 0;
         this.legendary = false;
+        this.lockTarget = null;
+        this.lockTime = 0;
+        this.pursuitAngle = null;
+        this.targetDelay = 0;
+        this.burstLeft = FIGHTER_BURST_SIZE;
         this.reload = 0;
         this.bombReload = 0;
         this.rocketReload = 0;
@@ -43,6 +48,11 @@ class Plane {
         this.health = stats.health;
         this.kills = 0;
         this.legendary = false;
+        this.lockTarget = null;
+        this.lockTime = 0;
+        this.pursuitAngle = null;
+        this.targetDelay = 0;
+        this.burstLeft = FIGHTER_BURST_SIZE;
         this.x = world.basePosition(this.team);
         this.y = 55 + Math.random() * Math.max(20, world.groundLevel() - 180);
         this.angle = this.team === 0 ? 0 : Math.PI;
@@ -75,13 +85,12 @@ class Plane {
         }
     }
 
-    // Легенди бувають лише в бомбардувальників: у винищувача немає legend.
     addKill(value = 1) {
-        if (this.state !== PLANE_FLYING || !this.stats.legend) {
+        if (this.state !== PLANE_FLYING) {
             return;
         }
 
-        this.kills += value * (this.bomber ? BOMBER_KILLER_FACTOR : 1);
+        this.kills += value;
 
         if (!this.legendary && this.kills >= this.stats.legend.kills) {
             this.becomeLegend();
@@ -142,6 +151,8 @@ class Plane {
             this.health = Math.min(this.stats.health, this.health + this.perk.regen * deltaTime);
         }
 
+        this.updateLock(deltaTime);
+        this.updatePursuit();
         Movement.steerPlane(this, deltaTime, time);
         Movement.flyPlane(this, deltaTime);
         this.emitTrail(deltaTime);
@@ -187,7 +198,17 @@ class Plane {
 
             const distance = Math.abs(unit.x - Movement.bombLandingX(this, unit.y));
 
-            if (distance < nearestDistance) {
+            if (distance >= BOMB_TARGETING_TOLERANCE) {
+                continue;
+            }
+
+            // Зенітка — головна ціль бомбардувальника, решта — за відстанню.
+            const better = !bombingTarget ||
+                (unit.type === ANTIAIRCRAFT && bombingTarget.type !== ANTIAIRCRAFT) ||
+                ((unit.type === ANTIAIRCRAFT) === (bombingTarget.type === ANTIAIRCRAFT) &&
+                    distance < nearestDistance);
+
+            if (better) {
                 bombingTarget = unit;
                 nearestDistance = distance;
             }
@@ -349,7 +370,16 @@ class Plane {
 
             const { distance, alignment } = Movement.alignment(this, enemy.x, enemy.y);
 
-            if (distance > 1 && distance < maximumDistance && alignment > bestAlignment) {
+            if (distance <= 1 || distance >= maximumDistance || alignment <= minimumAlignment) {
+                continue;
+            }
+
+            // Бомбардувальник у прицілі завжди важливіший за винищувач.
+            const better = !bestPlane ||
+                (enemy.bomber && !bestPlane.bomber) ||
+                (enemy.bomber === bestPlane.bomber && alignment > bestAlignment);
+
+            if (better) {
                 bestAlignment = alignment;
                 bestPlane = enemy;
             }
@@ -388,28 +418,138 @@ class Plane {
         return bestUnit;
     }
 
+    // Літак живий, поки летить; наземний юніт — поки активний.
+    isTargetAlive(target) {
+        return target.state === undefined ? target.active : target.state === PLANE_FLYING;
+    }
+
+    // Ціль для кулемета: літак у секторі прицілу, інакше наземний юніт; null, якщо немає.
+    findGunTarget() {
+        return this.findPlaneInSights(350, 0.93) ?? this.findGroundUnitInSights(370, 0.94);
+    }
+
+    // Винищувач захоплює ціль: поки вона в прицілі, лічильник росте, зміна цілі скидає його.
+    updateLock(deltaTime) {
+        if (this.bomber) {
+            return;
+        }
+
+        const instant = this.perk?.instantLock;
+
+        this.targetDelay = Math.max(0, this.targetDelay - deltaTime);
+
+        // Після збиття цілі винищувач деякий час не захоплює наступну (легенда — без паузи).
+        if (this.lockTarget && !this.isTargetAlive(this.lockTarget)) {
+            this.targetDelay = instant ? 0 : TARGET_SWITCH_DELAY;
+        }
+
+        if (instant) {
+            this.targetDelay = 0;
+        }
+
+        if (this.targetDelay > 0) {
+            this.lockTarget = null;
+            this.lockTime = 0;
+            return;
+        }
+
+        const target = this.findGunTarget();
+
+        if (target === this.lockTarget && target !== null) {
+            this.lockTime = Math.min(LOCK_TIME + LOCK_FIRE_DELAY, this.lockTime + deltaTime);
+        } else {
+            this.lockTarget = target;
+            this.lockTime = 0;
+        }
+
+        // Легенда захоплює ціль миттєво: повна точність без відліку.
+        if (instant && target) {
+            this.lockTime = LOCK_TIME + LOCK_FIRE_DELAY;
+        }
+    }
+
+    // Найближчий ворожий бомбардувальник у радіусі погоні або null.
+    findPursuitTarget() {
+        let nearestTarget = null;
+        let nearestDistance = PLANE_PURSUIT_RANGE;
+
+        for (const enemy of battle.planes) {
+            if (enemy.team === this.team || enemy.state !== PLANE_FLYING || !enemy.bomber) {
+                continue;
+            }
+
+            const { distance, alignment } = Movement.alignment(this, enemy.x, enemy.y);
+
+            // Лише ті, що попереду: розвертатися на ціль позаду не потрібно.
+            if (alignment > PURSUIT_CONE && distance < nearestDistance) {
+                nearestTarget = enemy;
+                nearestDistance = distance;
+            }
+        }
+
+        return nearestTarget;
+    }
+
+    // Винищувач іде на захоплену ціль, інакше переслідує бомбардувальник; ціль береться з випередженням.
+    updatePursuit() {
+        this.pursuitAngle = null;
+
+        const target = this.bomber || this.targetDelay > 0
+            ? null
+            : this.lockTarget ?? this.findPursuitTarget();
+
+        if (!target) {
+            return;
+        }
+
+        const isPlane = target.state !== undefined;
+        let aimX = target.x;
+        let aimY = isPlane ? target.y : target.y - 7;
+
+        if (isPlane) {
+            const leadTime = Math.hypot(aimX - this.x, aimY - this.y) / PLANE_GUN_SPEED;
+            aimX += target.velocityX * leadTime;
+            aimY += target.velocityY * leadTime;
+        }
+
+        this.pursuitAngle = Math.atan2(aimY - this.y, aimX - this.x);
+    }
+
     tryShoot() {
         if (this.reload > 0) {
             return;
         }
 
-        let targetLane = -1;
+        const target = this.bomber ? this.findGunTarget() : this.lockTarget;
 
-        if (!this.findPlaneInSights(350, 0.93)) {
-            targetLane = this.findGroundLaneInSights();
+        if (!target) {
+            return;
+        }
 
-            if (targetLane < 0) {
-                return;
-            }
+        // Після повного захоплення винищувач ще мить цілиться, перш ніж дати чергу.
+        if (!this.bomber && this.lockTime < LOCK_TIME + LOCK_FIRE_DELAY) {
+            return;
+        }
 
+        // Літак має state, наземний юніт — лінію.
+        const targetLane = target.state === undefined ? target.lane : -1;
+
+        if (targetLane >= 0) {
             this.flightLane = targetLane;
         }
 
         this.reload = this.stats.fireInterval;
 
+        // Винищувач стріляє чергою, потім перезаряджається довше.
+        if (!this.bomber && --this.burstLeft === 0) {
+            this.burstLeft = FIGHTER_BURST_SIZE;
+            this.reload = FIGHTER_BURST_PAUSE;
+        }
+
         const forwardX = Math.cos(this.angle);
         const forwardY = Math.sin(this.angle);
-        const shotAngle = this.angle + (Math.random() - 0.5) * 0.045;
+        const precision = this.bomber ? 0 : LOCK_PRECISION * Math.min(1, this.lockTime / LOCK_TIME);
+        const shotAngle = this.angle + (Math.random() - 0.5) * PLANE_GUN_SPREAD * (1 - precision);
 
         Projectile.fire({
             x: this.x + forwardX * 25,
