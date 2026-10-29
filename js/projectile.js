@@ -157,6 +157,11 @@ class Projectile {
 
         if (this.explosionRadius > 0) {
             spawnExplosion(this.x, this.y, this.bomb ? 30 : 24);
+
+            if (this.bomb) {
+                spawnBombCloud(this.x, this.y);
+            }
+
             damageArea(this.x, this.explosionRadius, this.damage, this.team, this.targetLane);
         } else {
             spawnExplosion(this.x, this.y, this.heavy ? 8 : 3);

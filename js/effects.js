@@ -45,6 +45,37 @@ function spawnSmoke(x, y, velocityX, velocityY, fire = false, lifeScale = 1) {
     const smoke = battle.smoke[smokeIndex];
     smokeIndex = (smokeIndex + 1) % battle.smoke.length;
     smoke.launch(x, y, velocityX, velocityY, fire, lifeScale);
+    return smoke;
+}
+
+// Висока вертикальна хмара важкої бомби: стовп диму, що росте вгору, з "шапкою".
+function spawnBombCloud(x, y) {
+    const stemCount = 28;
+    const capCount = 22;
+
+    for (let index = 0; index < stemCount; index++) {
+        const height = index / (stemCount - 1);
+        const smoke = spawnSmoke(
+            x + (Math.random() - 0.5) * 10,
+            y,
+            (Math.random() - 0.5) * 16,
+            0,
+            height < 0.35,
+            2.2
+        );
+        smoke.maximumLife *= 1.4;
+        smoke.life = smoke.maximumLife;
+        smoke.velocityY = -(15 + height * 55) - Math.random() * 8;
+    }
+
+    for (let index = 0; index < capCount; index++) {
+        const angle = (index / capCount) * Math.PI * 2;
+        const smoke = spawnSmoke(x, y, 0, 0, false, 2.2);
+        smoke.maximumLife *= 1.4;
+        smoke.life = smoke.maximumLife;
+        smoke.velocityX = Math.cos(angle) * (15 + Math.random() * 20);
+        smoke.velocityY = -70 + Math.sin(angle) * 8 - Math.random() * 6;
+    }
 }
 
 function spawnExplosion(x, y, count = 22) {
