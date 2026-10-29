@@ -12,6 +12,8 @@ class Plane {
         this.angle = 0;
         this.targetAngle = 0;
         this.health = 1;
+        this.kills = 0;
+        this.legendary = false;
         this.reload = 0;
         this.bombReload = 0;
         this.rocketReload = 0;
@@ -29,11 +31,18 @@ class Plane {
         return this.bomber ? PLANE_STATS.bomber : PLANE_STATS.fighter;
     }
 
+    // Перки легенди або null, якщо літак звичайний.
+    get perk() {
+        return this.legendary ? this.stats.legend : null;
+    }
+
     spawn() {
         const stats = this.stats;
 
         this.state = PLANE_FLYING;
         this.health = stats.health;
+        this.kills = 0;
+        this.legendary = false;
         this.x = world.basePosition(this.team);
         this.y = 55 + Math.random() * Math.max(20, world.groundLevel() - 180);
         this.angle = this.team === 0 ? 0 : Math.PI;
@@ -49,16 +58,40 @@ class Plane {
         this.crashLane = -1;
     }
 
-    takeDamage(amount) {
+    // attacker — сутність, якій зараховується збиття (може бути null).
+    takeDamage(amount, attacker = null) {
         this.health -= amount;
 
         if (this.health <= 0) {
+            if (attacker && attacker.team !== this.team) {
+                attacker.addKill(this.bomber ? BOMBER_KILL_VALUE : 1);
+            }
+
             this.state = PLANE_FALLING;
             this.smokeTimer = 0;
             // Лінія падіння фіксується один раз і більше не змінюється.
             this.crashLane = this.flightLane;
             spawnExplosion(this.x, this.y, 16);
         }
+    }
+
+    // Легенди бувають лише в бомбардувальників: у винищувача немає legend.
+    addKill(value = 1) {
+        if (this.state !== PLANE_FLYING || !this.stats.legend) {
+            return;
+        }
+
+        this.kills += value * (this.bomber ? BOMBER_KILLER_FACTOR : 1);
+
+        if (!this.legendary && this.kills >= this.stats.legend.kills) {
+            this.becomeLegend();
+        }
+    }
+
+    becomeLegend() {
+        this.legendary = true;
+        this.health = this.stats.legend.health ?? this.health;
+        spawnLegendEffect(this.x, this.y, this.stats.name);
     }
 
     scheduleRespawn() {
@@ -105,6 +138,10 @@ class Plane {
     }
 
     updateFlying(deltaTime, time) {
+        if (this.perk?.regen) {
+            this.health = Math.min(this.stats.health, this.health + this.perk.regen * deltaTime);
+        }
+
         Movement.steerPlane(this, deltaTime, time);
         Movement.flyPlane(this, deltaTime);
         this.emitTrail(deltaTime);
@@ -180,10 +217,38 @@ class Plane {
             return;
         }
 
+        if (this.perk?.nuke) {
+            this.dropNuke(bombingTarget);
+            return;
+        }
+
         this.carpetBombsLeft = CARPET_BOMB_COUNT;
         this.carpetTimer = 0;
         this.carpetLane = bombingTarget.lane;
         this.flightLane = bombingTarget.lane;
+    }
+
+    // Легендарний бомбардувальник замість килима скидає одну ядерну бомбу.
+    dropNuke(bombingTarget) {
+        this.bombReload = NUKE_RELOAD;
+        this.flightLane = bombingTarget.lane;
+
+        Projectile.fire({
+            x: this.x,
+            y: this.y + 10,
+            velocityX: this.velocityX * BOMB_HORIZONTAL_FACTOR,
+            velocityY: 20,
+            team: this.team,
+            owner: this,
+            damage: NUKE_DAMAGE,
+            heavy: true,
+            bomb: true,
+            nuke: true,
+            big: true,
+            gravity: GRAVITY,
+            targetLane: bombingTarget.lane,
+            explosionRadius: NUKE_RADIUS
+        });
     }
 
     continueCarpetBombing(deltaTime) {
@@ -206,6 +271,7 @@ class Plane {
             velocityX: this.velocityX * BOMB_HORIZONTAL_FACTOR,
             velocityY: 20,
             team: this.team,
+            owner: this,
             damage: CARPET_BOMB_DAMAGE,
             heavy: true,
             bomb: true,
@@ -217,47 +283,56 @@ class Plane {
 
     // --- Rockets -----------------------------------------------------------
 
-    // Винищувач пускає самонавідну ракету по літаку або пряму по наземній цілі.
+    // Легендарний винищувач залпом пускає самонавідні ракети по літаку або прямі по землі.
     tryLaunchRocket() {
-        if (this.bomber || this.rocketReload > 0) {
+        if (!this.perk?.rockets || this.rocketReload > 0) {
             return;
         }
 
         const enemyPlane = this.findPlaneInSights(AIR_ROCKET_RANGE, 0.88);
+        let groundTarget = null;
         let targetLane = -1;
 
         if (!enemyPlane) {
-            targetLane = this.findGroundLaneInSights(GROUND_ROCKET_RANGE, 0.85);
+            groundTarget = this.findGroundUnitInSights(GROUND_ROCKET_RANGE, 0.85);
 
-            if (targetLane < 0) {
+            if (!groundTarget) {
                 return;
             }
 
+            targetLane = groundTarget.lane;
             this.flightLane = targetLane;
         }
 
         this.rocketReload = this.stats.rocketReload + Math.random();
 
-        const forwardX = Math.cos(this.angle);
-        const forwardY = Math.sin(this.angle);
+        const rockets = this.perk.rockets;
         const airToAir = enemyPlane !== null;
 
-        Projectile.fire({
-            x: this.x + forwardX * 25,
-            y: this.y + forwardY * 25,
-            velocityX: this.velocityX + forwardX * ROCKET_LAUNCH_SPEED,
-            velocityY: this.velocityY + forwardY * ROCKET_LAUNCH_SPEED,
-            team: this.team,
-            damage: airToAir ? AIR_ROCKET_DAMAGE : GROUND_ROCKET_DAMAGE,
-            heavy: true,
-            rocket: true,
-            homingTarget: enemyPlane,
-            turnRate: airToAir ? AIR_ROCKET_TURN_RATE : 0,
-            planeBlastRadius: airToAir ? AIR_ROCKET_BLAST_RADIUS : 0,
-            explosionRadius: airToAir ? 0 : GROUND_ROCKET_RADIUS,
-            life: 4,
-            targetLane
-        });
+        for (let index = 0; index < rockets; index++) {
+            const offset = index - (rockets - 1) / 2;
+            const launchAngle = this.angle + offset * 0.25;
+            const forwardX = Math.cos(launchAngle);
+            const forwardY = Math.sin(launchAngle);
+
+            Projectile.fire({
+                x: this.x + Math.cos(this.angle) * 25,
+                y: this.y + Math.sin(this.angle) * 25,
+                velocityX: this.velocityX + forwardX * ROCKET_LAUNCH_SPEED,
+                velocityY: this.velocityY + forwardY * ROCKET_LAUNCH_SPEED,
+                team: this.team,
+                owner: this,
+                damage: airToAir ? AIR_ROCKET_DAMAGE : GROUND_ROCKET_DAMAGE,
+                heavy: true,
+                rocket: true,
+                homingTarget: enemyPlane,
+                turnRate: airToAir ? AIR_ROCKET_TURN_RATE : 0,
+                planeBlastRadius: airToAir ? AIR_ROCKET_BLAST_RADIUS : 0,
+                explosionRadius: airToAir ? 0 : GROUND_ROCKET_RADIUS,
+                life: 4,
+                targetLane
+            });
+        }
     }
 
     // --- Machine gun -------------------------------------------------------
@@ -285,8 +360,13 @@ class Plane {
 
     // Повертає лінію найкраще вирівняної наземної цілі або -1, якщо цілі немає.
     findGroundLaneInSights(maximumDistance = 370, minimumAlignment = 0.94) {
+        return this.findGroundUnitInSights(maximumDistance, minimumAlignment)?.lane ?? -1;
+    }
+
+    // Найкраще вирівняна наземна ціль у секторі прицілу або null.
+    findGroundUnitInSights(maximumDistance, minimumAlignment) {
         let bestAlignment = minimumAlignment;
-        let bestLane = -1;
+        let bestUnit = null;
 
         for (const unit of battle.groundUnits) {
             if (!unit.active || unit.team === this.team) {
@@ -301,11 +381,11 @@ class Plane {
 
             if (alignment > bestAlignment) {
                 bestAlignment = alignment;
-                bestLane = unit.lane;
+                bestUnit = unit;
             }
         }
 
-        return bestLane;
+        return bestUnit;
     }
 
     tryShoot() {
@@ -337,12 +417,13 @@ class Plane {
             velocityX: Math.cos(shotAngle) * PLANE_GUN_SPEED,
             velocityY: Math.sin(shotAngle) * PLANE_GUN_SPEED,
             team: this.team,
+            owner: this,
             damage: 1,
             targetLane
         });
     }
 
-    draw() {
-        Art.drawPlane(this);
+    draw(time) {
+        Art.drawPlane(this, time);
     }
 }

@@ -31,6 +31,9 @@ const battle = {
     projectiles: Array.from({ length: 600 }, () => new Projectile()),
     groundUnits: Array.from({ length: 150 }, () => new GroundUnit()),
     planes: Array.from({ length: 12 }, (_, index) => new Plane(index)),
+    banners: Array.from({ length: 8 }, () => new Banner()),
+    slowTimer: 0,
+    flash: 0,
     spawners: Array.from({ length: LANE_OFFSETS.length * 2 }, (_, index) =>
         new GroundSpawner(index % 2, Math.floor(index / 2))),
 
@@ -58,6 +61,12 @@ const battle = {
         for (const smoke of this.smoke) {
             if (smoke.active) {
                 smoke.update(deltaTime);
+            }
+        }
+
+        for (const banner of this.banners) {
+            if (banner.active) {
+                banner.update(deltaTime);
             }
         }
     },
@@ -88,8 +97,18 @@ const battle = {
 
         for (const plane of this.planes) {
             if (plane.state !== PLANE_RESPAWNING) {
-                plane.draw();
+                plane.draw(time);
             }
+        }
+
+        for (const banner of this.banners) {
+            if (banner.active) {
+                banner.draw();
+            }
+        }
+
+        if (this.flash > 0) {
+            Art.drawFlash(this.flash);
         }
     },
 
@@ -164,7 +183,17 @@ function loop(now) {
     lastTime = now;
     const time = now / 1000;
 
-    battle.update(deltaTime, time);
+    // Уповільнення часу при підвищенні до легенди та ядерному вибуху.
+    let gameDelta = deltaTime;
+
+    if (battle.slowTimer > 0) {
+        battle.slowTimer -= deltaTime;
+        gameDelta *= LEGEND_SLOWMO_SCALE;
+    }
+
+    battle.flash = Math.max(0, battle.flash - deltaTime * 0.7);
+
+    battle.update(gameDelta, time);
     battle.render(time);
 
     requestAnimationFrame(loop);

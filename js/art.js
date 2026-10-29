@@ -47,6 +47,12 @@ const Art = {
         context.save();
         context.translate(unit.x, unit.y);
         context.scale(scale, scale);
+
+        if (unit.legendary) {
+            context.shadowColor = LEGEND_COLOR;
+            context.shadowBlur = 10;
+        }
+
         context.globalAlpha = 0.6 + unit.lane * 0.2;
         context.fillStyle = TEAM_COLORS[unit.team];
         context.strokeStyle = TEAM_COLORS[unit.team];
@@ -59,7 +65,20 @@ const Art = {
             this.drawVehicle(unit, direction);
         }
 
+        if (unit.legendary) {
+            this.drawLegendStar(0, unit.type === INFANTRY ? -20 : -30, time);
+        }
+
         context.restore();
+    },
+
+    // Золота зірка над легендою, що пульсує.
+    drawLegendStar(x, y, time) {
+        context.globalAlpha = 0.7 + Math.sin(time * 6) * 0.3;
+        context.fillStyle = LEGEND_COLOR;
+        context.font = 'bold 16px monospace';
+        context.fillText('★', x, y);
+        context.globalAlpha = 1;
     },
 
     drawInfantry(unit, direction, time) {
@@ -106,6 +125,11 @@ const Art = {
         context.moveTo(0, -12);
         context.lineTo(barrelX, barrelY);
 
+        if (unit.type === TANK && unit.legendary) {
+            context.moveTo(0, -7);
+            context.lineTo(barrelX, barrelY + 5);
+        }
+
         if (unit.type === ANTIAIRCRAFT) {
             context.moveTo(5, -12);
             context.lineTo(barrelX + 5, barrelY);
@@ -116,12 +140,17 @@ const Art = {
 
     // --- Planes ------------------------------------------------------------
 
-    drawPlane(plane) {
+    drawPlane(plane, time) {
         const sprite = this.PLANE_SPRITES[plane.bomber ? 'bomber' : 'fighter'];
 
         context.save();
         context.translate(plane.x, plane.y);
         context.rotate(plane.angle);
+
+        if (plane.legendary) {
+            context.shadowColor = LEGEND_COLOR;
+            context.shadowBlur = 12;
+        }
 
         if (Math.cos(plane.angle) < 0) {
             context.scale(1, -1);
@@ -134,6 +163,13 @@ const Art = {
         context.fillText(sprite.text, sprite.offsetX, 6);
 
         context.restore();
+
+        if (plane.legendary && plane.state === PLANE_FLYING) {
+            context.save();
+            context.textAlign = 'center';
+            this.drawLegendStar(plane.x, plane.y - 24, time);
+            context.restore();
+        }
     },
 
     // --- Projectiles -------------------------------------------------------
@@ -141,6 +177,10 @@ const Art = {
     projectileSymbol(projectile) {
         if (projectile.rocket) {
             return projectile.big ? '=##>' : '=>';
+        }
+
+        if (projectile.nuke) {
+            return '<@>';
         }
 
         if (projectile.bomb) {
@@ -156,7 +196,11 @@ const Art = {
 
     projectileColor(projectile) {
         if (projectile.rocket) {
-            return projectile.big ? '#ff5533' : '#ffb347';
+            return projectile.big ? TEAM_COLORS[projectile.team] : '#ffb347';
+        }
+
+        if (projectile.nuke) {
+            return '#ffffff';
         }
 
         if (projectile.bomb) {
@@ -173,6 +217,31 @@ const Art = {
         context.fillStyle = this.projectileColor(projectile);
         context.font = projectile.big ? 'bold 19px monospace' : 'bold 15px monospace';
         context.fillText(this.projectileSymbol(projectile), -4, 4);
+        context.restore();
+    },
+
+    // --- Banners and flash -------------------------------------------------
+
+    drawBanner(banner) {
+        const fade = Math.min(1, banner.life / (LEGEND_BANNER_LIFE * 0.4));
+
+        context.save();
+        context.textAlign = 'center';
+        context.font = 'bold 20px monospace';
+        context.globalAlpha = fade;
+        context.fillStyle = LEGEND_COLOR;
+        context.shadowColor = LEGEND_COLOR;
+        context.shadowBlur = 12;
+        context.fillText(banner.text, clamp(banner.x, 140, world.width - 140), banner.y);
+        context.restore();
+    },
+
+    // Білий спалах на весь екран (ядерний вибух).
+    drawFlash(amount) {
+        context.save();
+        context.globalAlpha = Math.min(1, amount);
+        context.fillStyle = '#ffffff';
+        context.fillRect(0, 0, world.width, world.height);
         context.restore();
     },
 

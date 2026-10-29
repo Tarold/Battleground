@@ -149,20 +149,30 @@ const Movement = {
 
     // --- Ballistics --------------------------------------------------------
 
-    // Балістична траєкторія артилерії: фіксований час польоту, гравітація діє на снаряд.
-    artilleryShot(horizontalDistance, verticalDistance) {
-        const flightTime = clamp(Math.abs(horizontalDistance) / 145, 1.25, 3.5);
-
+    // Навісна траєкторія: фіксований час польоту, гравітація діє на снаряд.
+    lobbedShot(horizontalDistance, verticalDistance, flightTime, explosionRadius) {
         return {
             velocityX: horizontalDistance / flightTime,
             velocityY: (verticalDistance - 0.5 * GRAVITY * flightTime * flightTime) / flightTime,
             gravity: GRAVITY,
-            explosionRadius: ARTILLERY_EXPLOSION_RADIUS
+            explosionRadius
         };
     },
 
+    artilleryShot(horizontalDistance, verticalDistance) {
+        const flightTime = clamp(Math.abs(horizontalDistance) / 145, 1.25, 3.5);
+
+        return this.lobbedShot(horizontalDistance, verticalDistance, flightTime, ARTILLERY_EXPLOSION_RADIUS);
+    },
+
+    grenadeShot(horizontalDistance, verticalDistance) {
+        const flightTime = clamp(Math.abs(horizontalDistance) / 120, 0.5, 1.3);
+
+        return this.lobbedShot(horizontalDistance, verticalDistance, flightTime, GRENADE_RADIUS);
+    },
+
     // Пряме влучання зі швидким снарядом; по літаку цілиться з випередженням.
-    directShot(unit, target, muzzleY, airborne) {
+    directShot(unit, target, muzzleY, airborne, offset) {
         const horizontalDistance = target.x - unit.x;
         const verticalDistance = target.y - 7 - muzzleY;
         const speed = unit.type === ANTIAIRCRAFT ? 430 : 350;
@@ -176,7 +186,8 @@ const Movement = {
         }
 
         const aimAngle = Math.atan2(aimY - muzzleY, aimX - unit.x);
-        const spread = (Math.random() - 0.5) * (unit.type === INFANTRY ? 0.035 : 0.018);
+        const spread = (Math.random() - 0.5) * (unit.type === INFANTRY ? 0.035 : 0.018) +
+            offset * MULTISHOT_ANGLE;
 
         return {
             velocityX: Math.cos(aimAngle + spread) * speed,
@@ -187,11 +198,17 @@ const Movement = {
     },
 
     // Кут і швидкість пострілу зі стволу наземного юніта по цілі.
-    groundShot(unit, target, muzzleY, airborne) {
+    // offset (-2..2) зміщує постріл у багатоствольному залпі; 0 = без зміщення.
+    groundShot(unit, target, muzzleY, airborne, offset = 0) {
         if (unit.type === ARTILLERY) {
-            return this.artilleryShot(target.x - unit.x, target.y - 7 - muzzleY);
+            const jitter = offset === 0 ? 0 : (Math.random() - 0.5) * 12;
+
+            return this.artilleryShot(
+                target.x - unit.x + offset * ARTILLERY_BARRAGE_SPREAD + jitter,
+                target.y - 7 - muzzleY
+            );
         }
 
-        return this.directShot(unit, target, muzzleY, airborne);
+        return this.directShot(unit, target, muzzleY, airborne, offset);
     }
 };

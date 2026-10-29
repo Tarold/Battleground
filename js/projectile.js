@@ -40,11 +40,14 @@ class Projectile {
         this.damage = 1;
         this.heavy = false;
         this.bomb = false;
+        this.nuke = false;
+        this.owner = null;
         this.shell = false;
         this.rocket = false;
         this.big = false;
         this.homingTarget = null;
         this.turnRate = 0;
+        this.age = 0;
         this.speed = 0;
         this.planeBlastRadius = 0;
         this.trailTimer = 0;
@@ -64,7 +67,7 @@ class Projectile {
 
     launch({
         x, y, velocityX, velocityY, team, damage,
-        heavy = false, bomb = false, shell = false,
+        heavy = false, bomb = false, nuke = false, owner = null, shell = false,
         rocket = false, big = false, homingTarget = null, turnRate = 0,
         planeBlastRadius = 0, life = null,
         gravity = 0, explosionRadius = 0, targetLane = -1
@@ -81,11 +84,14 @@ class Projectile {
         this.damage = damage;
         this.heavy = heavy;
         this.bomb = bomb;
+        this.nuke = nuke;
+        this.owner = owner;
         this.shell = shell;
         this.rocket = rocket;
         this.big = big;
         this.homingTarget = homingTarget;
         this.turnRate = turnRate;
+        this.age = 0;
         this.speed = Math.hypot(velocityX, velocityY);
         this.planeBlastRadius = planeBlastRadius;
         this.trailTimer = 0;
@@ -110,6 +116,12 @@ class Projectile {
         }
 
         if (this.rocket) {
+            this.age += deltaTime;
+
+            if (this.planeBlastRadius > 0 && this.turnRate > 0) {
+                this.retargetRocket();
+            }
+
             Movement.guideRocket(this, deltaTime);
             this.emitRocketTrail(deltaTime);
         }
@@ -124,6 +136,52 @@ class Projectile {
             this.y = this.impactY;
             this.detonate();
         }
+    }
+
+    // Самонавідна ракета, що промахнулась (ціль збита або лишилась позаду),
+    // шукає нову ворожу ціль у конусі перед собою.
+    retargetRocket() {
+        const target = this.homingTarget;
+
+        if (target && target.state === PLANE_FLYING &&
+            (this.age < ROCKET_MISS_GRACE || this.coneAlignment(target) > 0)) {
+            return;
+        }
+
+        let bestAlignment = ROCKET_RETARGET_CONE;
+        let bestPlane = null;
+
+        for (const plane of battle.planes) {
+            if (plane.team === this.team || plane.state !== PLANE_FLYING) {
+                continue;
+            }
+
+            if (Math.hypot(plane.x - this.x, plane.y - this.y) > ROCKET_RETARGET_RANGE) {
+                continue;
+            }
+
+            const alignment = this.coneAlignment(plane);
+
+            if (alignment > bestAlignment) {
+                bestAlignment = alignment;
+                bestPlane = plane;
+            }
+        }
+
+        this.homingTarget = bestPlane;
+    }
+
+    // Косинус кута між курсом ракети та напрямком на ціль.
+    coneAlignment(target) {
+        const distanceX = target.x - this.x;
+        const distanceY = target.y - this.y;
+        const distance = Math.hypot(distanceX, distanceY);
+
+        if (distance < 1) {
+            return 1;
+        }
+
+        return (distanceX * this.velocityX + distanceY * this.velocityY) / (distance * this.speed);
     }
 
     emitRocketTrail(deltaTime) {
@@ -165,7 +223,7 @@ class Projectile {
 
             this.active = false;
             spawnSmoke(this.x, this.y, plane.velocityX * 0.3, plane.velocityY * 0.3, true, 0.6);
-            plane.takeDamage(this.damage);
+            plane.takeDamage(this.damage, this.owner);
 
             return true;
         }
@@ -194,7 +252,7 @@ class Projectile {
             } else {
                 this.active = false;
                 spawnSmoke(this.x, this.y, 0, -20, true, 0.5);
-                unit.takeDamage(this.damage);
+                unit.takeDamage(this.damage, this.owner);
             }
 
             return true;
@@ -211,16 +269,32 @@ class Projectile {
         }
 
         if (this.planeBlastRadius > 0) {
-            damagePlanesArea(this.x, this.y, this.planeBlastRadius, this.damage, this.team);
+            damagePlanesArea(this.x, this.y, this.planeBlastRadius, this.damage, this.team, this.owner);
         }
 
         if (this.explosionRadius > 0) {
-            damageArea(this.x, this.explosionRadius, this.damage, this.team, this.targetLane);
+            damageArea(this.x, this.explosionRadius, this.damage, this.team, this.targetLane, this.owner);
         }
+    }
+
+    // Ядерна бомба б'є по всіх лініях і по літаках, без поділу на своїх і чужих.
+    detonateNuke() {
+        spawnNuclearExplosion(this.x, this.y);
+
+        for (let lane = 0; lane < LANE_OFFSETS.length; lane++) {
+            damageArea(this.x, NUKE_RADIUS, NUKE_DAMAGE, -1, lane, this.owner);
+        }
+
+        damagePlanesArea(this.x, this.y, NUKE_RADIUS, NUKE_DAMAGE, -1, this.owner);
     }
 
     detonate() {
         this.active = false;
+
+        if (this.nuke) {
+            this.detonateNuke();
+            return;
+        }
 
         if (this.rocket) {
             this.detonateRocket();
@@ -234,7 +308,7 @@ class Projectile {
                 spawnBombCloud(this.x, this.y, 0.45);
             }
 
-            damageArea(this.x, this.explosionRadius, this.damage, this.team, this.targetLane);
+            damageArea(this.x, this.explosionRadius, this.damage, this.team, this.targetLane, this.owner);
         } else {
             spawnExplosion(this.x, this.y, this.heavy ? 8 : 3);
         }

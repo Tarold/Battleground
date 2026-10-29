@@ -10,7 +10,11 @@ class GroundUnit {
         this.y = 0;
         this.health = 1;
         this.reload = 0;
-        this.missileReload = 0;
+        this.specialReload = 0;
+        this.missilesLeft = 0;
+        this.missileTimer = 0;
+        this.kills = 0;
+        this.legendary = false;
         this.animationPhase = 0;
         this.aimAngle = 0;
         this.moving = false;
@@ -18,6 +22,11 @@ class GroundUnit {
 
     get stats() {
         return UNIT_STATS[this.type];
+    }
+
+    // Перки легенди або null, якщо юніт звичайний.
+    get perk() {
+        return this.legendary ? this.stats.legend : null;
     }
 
     static randomType() {
@@ -58,18 +67,45 @@ class GroundUnit {
         this.y = world.laneLevel(lane);
         this.health = this.stats.health;
         this.reload = 0.3 + Math.random();
-        this.missileReload = 2 + Math.random() * 3;
+        this.specialReload = 2 + Math.random() * 3;
+        this.missilesLeft = 0;
+        this.missileTimer = 0;
+        this.kills = 0;
+        this.legendary = false;
         this.animationPhase = Math.random() * 10;
         this.aimAngle = team === 0 ? -0.7 : -Math.PI + 0.7;
         this.moving = false;
     }
 
-    takeDamage(amount) {
+    // attacker — сутність, якій зараховується вбивство (може бути null).
+    takeDamage(amount, attacker = null) {
         this.health -= amount;
 
         if (this.health <= 0) {
             this.destroy();
+
+            if (attacker && attacker.team !== this.team) {
+                attacker.addKill();
+            }
         }
+    }
+
+    addKill(value = 1) {
+        if (!this.active) {
+            return;
+        }
+
+        this.kills += value;
+
+        if (!this.legendary && this.kills >= this.stats.legend.kills) {
+            this.becomeLegend();
+        }
+    }
+
+    becomeLegend() {
+        this.legendary = true;
+        this.health = this.stats.legend.health ?? this.health;
+        spawnLegendEffect(this.x, this.y, this.stats.name);
     }
 
     destroy() {
@@ -80,11 +116,15 @@ class GroundUnit {
     update(deltaTime) {
         this.y = world.laneLevel(this.lane);
         this.reload -= deltaTime;
-        this.missileReload -= deltaTime;
+        this.specialReload -= deltaTime;
         this.moving = false;
 
-        if (this.type === ANTIAIRCRAFT) {
-            this.tryLaunchMissile();
+        if (this.perk?.missiles) {
+            this.tryLaunchMissile(deltaTime);
+        }
+
+        if (this.perk?.grenades) {
+            this.tryThrowGrenade();
         }
 
         const { target, airborne } = this.selectTarget();
@@ -132,12 +172,16 @@ class GroundUnit {
         };
     }
 
-    findGroundTarget(range, minimumDistance = 0) {
+    findGroundTarget(range, minimumDistance = 0, vehiclesOnly = false) {
         let nearestTarget = null;
         let nearestDistance = range;
 
         for (const enemy of battle.groundUnits) {
             if (!enemy.active || enemy.team === this.team || enemy.lane !== this.lane) {
+                continue;
+            }
+
+            if (vehiclesOnly && enemy.type === INFANTRY) {
                 continue;
             }
 
@@ -152,9 +196,10 @@ class GroundUnit {
         return nearestTarget;
     }
 
+    // Зенітка в першу чергу бере бомбардувальники, інакше — найближчий літак.
     findAirTarget(range = UNIT_STATS[ANTIAIRCRAFT].range) {
-        let nearestTarget = null;
-        let nearestDistance = range;
+        let bestTarget = null;
+        let bestDistance = range;
 
         for (const plane of battle.planes) {
             if (plane.team === this.team || plane.state !== PLANE_FLYING) {
@@ -163,61 +208,129 @@ class GroundUnit {
 
             const distance = Math.hypot(plane.x - this.x, plane.y - this.y);
 
-            if (distance < nearestDistance) {
-                nearestTarget = plane;
-                nearestDistance = distance;
+            if (distance >= range) {
+                continue;
+            }
+
+            const better = !bestTarget ||
+                (plane.bomber && !bestTarget.bomber) ||
+                (plane.bomber === bestTarget.bomber && distance < bestDistance);
+
+            if (better) {
+                bestTarget = plane;
+                bestDistance = distance;
             }
         }
 
-        return nearestTarget;
+        return bestTarget;
     }
 
     // --- Shooting ----------------------------------------------------------
 
     fire(target, airborne) {
         const muzzleY = this.y - (this.type === INFANTRY ? 7 : 13);
-        const shot = Movement.groundShot(this, target, muzzleY, airborne);
+        const aim = Movement.groundShot(this, target, muzzleY, airborne);
 
-        this.aimAngle = Math.atan2(shot.velocityY, shot.velocityX);
+        this.aimAngle = Math.atan2(aim.velocityY, aim.velocityX);
         this.reload = this.stats.reload + Math.random() * 0.15;
 
         const muzzleX = this.x + Math.cos(this.aimAngle) * 19;
         const heavy = this.type !== INFANTRY;
+        const shots = this.perk?.shots ?? 1;
 
-        Projectile.fire({
-            x: muzzleX,
-            y: muzzleY,
-            velocityX: shot.velocityX,
-            velocityY: shot.velocityY,
-            team: this.team,
-            damage: this.stats.damage,
-            heavy,
-            shell: this.type === ARTILLERY,
-            gravity: shot.gravity,
-            explosionRadius: shot.explosionRadius,
-            targetLane: airborne ? -1 : target.lane
-        });
+        for (let index = 0; index < shots; index++) {
+            const offset = index - (shots - 1) / 2;
+            const shot = shots === 1 ? aim : Movement.groundShot(this, target, muzzleY, airborne, offset);
+
+            Projectile.fire({
+                x: muzzleX,
+                y: muzzleY + (this.type === ARTILLERY ? 0 : offset * 5),
+                velocityX: shot.velocityX,
+                velocityY: shot.velocityY,
+                team: this.team,
+                owner: this,
+                damage: this.stats.damage,
+                heavy,
+                shell: this.type === ARTILLERY,
+                gravity: shot.gravity,
+                explosionRadius: shot.explosionRadius,
+                targetLane: airborne ? -1 : target.lane
+            });
+        }
 
         spawnSmoke(muzzleX, muzzleY, Math.cos(this.aimAngle) * 25, -15, heavy, 0.35);
     }
 
-    // Велика самонавідна ракета: стартує майже вертикально, потім наводиться.
-    tryLaunchMissile() {
-        if (this.missileReload > 0) {
+    // Протитанкова граната легендарної піхоти: навісом по найближчій техніці.
+    tryThrowGrenade() {
+        if (this.specialReload > 0) {
+            return;
+        }
+
+        const target = this.findGroundTarget(GRENADE_RANGE, 0, true);
+
+        if (!target) {
+            return;
+        }
+
+        const startY = this.y - 10;
+        const shot = Movement.grenadeShot(target.x - this.x, target.y - 7 - startY);
+
+        this.specialReload = GRENADE_RELOAD + Math.random();
+
+        Projectile.fire({
+            x: this.x,
+            y: startY,
+            velocityX: shot.velocityX,
+            velocityY: shot.velocityY,
+            team: this.team,
+            owner: this,
+            damage: GRENADE_DAMAGE,
+            heavy: true,
+            shell: true,
+            gravity: shot.gravity,
+            explosionRadius: shot.explosionRadius,
+            targetLane: target.lane
+        });
+    }
+
+    // Легендарна зенітка запускає серію ракет по одній, з інтервалом.
+    tryLaunchMissile(deltaTime) {
+        if (this.missilesLeft === 0) {
+            if (this.specialReload > 0 || !this.findAirTarget(AA_MISSILE_RANGE)) {
+                return;
+            }
+
+            this.missilesLeft = this.perk.missiles;
+            this.missileTimer = 0;
+        }
+
+        this.missileTimer -= deltaTime;
+
+        if (this.missileTimer > 0) {
             return;
         }
 
         const target = this.findAirTarget(AA_MISSILE_RANGE);
 
         if (!target) {
+            this.missilesLeft = 0;
+            this.specialReload = 2;
             return;
         }
 
-        const direction = this.team === 0 ? 1 : -1;
-        const launchAngle = -Math.PI / 2 + direction * 0.35;
-        const launchY = this.y - 16;
+        this.missileTimer = AA_MISSILE_INTERVAL;
+        this.missilesLeft--;
 
-        this.missileReload = AA_MISSILE_RELOAD + Math.random() * 1.5;
+        if (this.missilesLeft === 0) {
+            this.specialReload = AA_MISSILE_RELOAD + Math.random() * 1.5;
+        }
+
+        // Ракети стартують майже вертикально, потім наводяться.
+        const direction = this.team === 0 ? 1 : -1;
+        const side = this.missilesLeft % 2 === 0 ? 0.25 : -0.25;
+        const launchAngle = -Math.PI / 2 + direction * 0.35 + side;
+        const launchY = this.y - 16;
 
         Projectile.fire({
             x: this.x,
@@ -225,6 +338,7 @@ class GroundUnit {
             velocityX: Math.cos(launchAngle) * AA_MISSILE_SPEED,
             velocityY: Math.sin(launchAngle) * AA_MISSILE_SPEED,
             team: this.team,
+            owner: this,
             damage: AA_MISSILE_DAMAGE,
             heavy: true,
             rocket: true,

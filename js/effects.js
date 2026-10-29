@@ -94,8 +94,81 @@ function spawnExplosion(x, y, count = 22) {
     }
 }
 
+// Великий напис над юнітом (підвищення до легенди).
+class Banner {
+    constructor() {
+        this.active = false;
+        this.x = 0;
+        this.y = 0;
+        this.text = '';
+        this.life = 0;
+    }
+
+    launch(x, y, text) {
+        this.active = true;
+        this.x = x;
+        this.y = y;
+        this.text = text;
+        this.life = LEGEND_BANNER_LIFE;
+    }
+
+    update(deltaTime) {
+        this.life -= deltaTime;
+        this.y -= 18 * deltaTime;
+
+        if (this.life <= 0) {
+            this.active = false;
+        }
+    }
+
+    draw() {
+        Art.drawBanner(this);
+    }
+}
+
+let bannerIndex = 0;
+
+function spawnBanner(x, y, text) {
+    const banner = battle.banners[bannerIndex];
+    bannerIndex = (bannerIndex + 1) % battle.banners.length;
+    banner.launch(x, y, text);
+}
+
+// Підвищення до легенди: стовп світла, ударне кільце, напис і уповільнення часу.
+function spawnLegendEffect(x, y, name) {
+    for (let index = 0; index < 16; index++) {
+        spawnSmoke(x, y - index * 14, 0, -150, true, 1.4);
+    }
+
+    const ringCount = 28;
+
+    for (let index = 0; index < ringCount; index++) {
+        const angle = (index / ringCount) * Math.PI * 2;
+        spawnSmoke(x, y, Math.cos(angle) * 150, Math.sin(angle) * 35, true, 1.2);
+    }
+
+    spawnBanner(x, y - 45, '★ LEGENDARY ' + name + ' ★');
+    battle.slowTimer = LEGEND_SLOWMO_TIME;
+}
+
+// Ядерний вибух: гриб, ударна хвиля, білий спалах на весь екран.
+function spawnNuclearExplosion(x, y) {
+    spawnExplosion(x, y, 120);
+    spawnBombCloud(x, y, 2.5);
+
+    const ringCount = 48;
+
+    for (let index = 0; index < ringCount; index++) {
+        const angle = (index / ringCount) * Math.PI * 2;
+        spawnSmoke(x, y, Math.cos(angle) * 420, Math.sin(angle) * 60, true, 1.5);
+    }
+
+    battle.flash = 1;
+    battle.slowTimer = NUKE_SLOWMO_TIME;
+}
+
 // Шкода по наземних ворожих юнітах у радіусі вибуху на заданій лінії.
-function damageArea(x, radius, damage, team, targetLane) {
+function damageArea(x, radius, damage, team, targetLane, owner = null) {
     if (targetLane < 0) {
         return;
     }
@@ -108,13 +181,13 @@ function damageArea(x, radius, damage, team, targetLane) {
         const distance = Math.abs(unit.x - x);
 
         if (distance < radius) {
-            unit.takeDamage(damage * (1 - distance / radius * 0.6));
+            unit.takeDamage(damage * (1 - distance / radius * 0.6), owner);
         }
     }
 }
 
 // Шкода по літаках у радіусі вибуху ракети (team -1 зачіпає всіх).
-function damagePlanesArea(x, y, radius, damage, team) {
+function damagePlanesArea(x, y, radius, damage, team, owner = null) {
     for (const plane of battle.planes) {
         if (plane.team === team || plane.state !== PLANE_FLYING) {
             continue;
@@ -123,7 +196,7 @@ function damagePlanesArea(x, y, radius, damage, team) {
         const distance = Math.hypot(plane.x - x, plane.y - y);
 
         if (distance < radius) {
-            plane.takeDamage(damage * (1 - distance / radius * 0.5));
+            plane.takeDamage(damage * (1 - distance / radius * 0.5), owner);
         }
     }
 }

@@ -58,11 +58,17 @@ const LANE_OFFSETS = [38, 21, 4];
 const LANE_SCALES = [0.78, 0.9, 1];
 
 // Параметри наземних юнітів, індекс = тип юніта.
+// legend: kills = скільки вбивств до статусу легенди, health = HP легенди,
+// решта полів — перки (shots, missiles, grenades, regen = HP/с). Без health легенда не отримує бонусу HP.
 const UNIT_STATS = [
-    { health: 2, speed: 30, range: 145, reload: 0.8,  damage: 1 }, // INFANTRY
-    { health: 9, speed: 22, range: 245, reload: 1.65, damage: 3 }, // TANK
-    { health: 6, speed: 25, range: 430, reload: 0.5,  damage: 2 }, // ANTIAIRCRAFT
-    { health: 5, speed: 17, range: 650, reload: 3.8,  damage: 6 }  // ARTILLERY
+    { name: 'INFANTRY', health: 2, speed: 30, range: 145, reload: 0.8,  damage: 1,
+        legend: { kills: 4, health: 5, grenades: true } },
+    { name: 'TANK', health: 9, speed: 22, range: 245, reload: 1.65, damage: 3,
+        legend: { kills: 3, health: 16, shots: 2 } },
+    { name: 'ANTI-AIR', health: 6, speed: 25, range: 430, reload: 0.5,  damage: 2,
+        legend: { kills: 3, health: 10, missiles: 2 } },
+    { name: 'ARTILLERY', health: 5, speed: 17, range: 650, reload: 3.8,  damage: 6,
+        legend: { kills: 3, health: 9, shots: 5 } }
 ];
 
 const ANTIAIRCRAFT_GROUND_RANGE = 260;
@@ -71,11 +77,14 @@ const ARTILLERY_EXPLOSION_RADIUS = 72;
 
 const PLANE_STATS = {
     fighter: {
+        name: 'FIGHTER',
         health: 3, speed: 180, turnRate: 3.5, wobble: 0.48,
         trailInterval: 0.04, fireInterval: 0.13, rocketReload: 4.5,
         halfWidth: 20, halfHeight: 10
     },
     bomber: {
+        name: 'BOMBER',
+        legend: { kills: 6, nuke: true, regen: 0.5 },
         health: 7, speed: 125, turnRate: 2.3, wobble: 0.24,
         trailInterval: 0.055, fireInterval: 0.25,
         halfWidth: 28, halfHeight: 13
@@ -107,9 +116,43 @@ const AA_MISSILE_RANGE = 580;
 const AA_MISSILE_RELOAD = 7;
 const AA_MISSILE_SPEED = 250;
 const AA_MISSILE_TURN_RATE = 2.2;
+const AA_MISSILE_INTERVAL = 0.7;
 const AA_MISSILE_DAMAGE = 5;
 const AA_MISSILE_BLAST_RADIUS = 75;
 const PLANE_FALL_GRAVITY = 240;
+
+// Ракета, що промахнулась (ціль збита або лишилась позаду), шукає нову ціль у конусі попереду.
+const ROCKET_MISS_GRACE = 0.8;
+const ROCKET_RETARGET_RANGE = 420;
+const ROCKET_RETARGET_CONE = 0.78;
+
+// Вбивство бомбардувальника зараховується як кілька вбивств.
+const BOMBER_KILL_VALUE = 2;
+
+// Вбивства, зроблені самим бомбардувальником, рахуються вдвічі слабше.
+const BOMBER_KILLER_FACTOR = 0.5;
+
+// Легенди: ефект підвищення та перки.
+const LEGEND_COLOR = '#ffd700';
+const LEGEND_SLOWMO_TIME = 0.5;
+const LEGEND_SLOWMO_SCALE = 0.25;
+const LEGEND_BANNER_LIFE = 2.4;
+
+// Протитанкові гранати легендарної піхоти.
+const GRENADE_RANGE = 190;
+const GRENADE_RELOAD = 3.5;
+const GRENADE_DAMAGE = 5;
+const GRENADE_RADIUS = 38;
+
+// Багатоствольна стрільба: кутовий розкид стволів і розкид залпу артилерії.
+const MULTISHOT_ANGLE = 0.04;
+const ARTILLERY_BARRAGE_SPREAD = 38;
+
+// Ядерна бомба легендарного бомбардувальника (б'є по всіх, включно зі своїми).
+const NUKE_DAMAGE = 14;
+const NUKE_RADIUS = 280;
+const NUKE_RELOAD = 12;
+const NUKE_SLOWMO_TIME = 0.8;
 
 // ---------------------------------------------------------------------------
 // Helpers
