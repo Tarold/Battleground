@@ -90,8 +90,8 @@ const PLANE_STATS = {
     },
     bomber: {
         name: 'BOMBER',
-        legend: { kills: 6, nuke: true, regen: 0.5 },
-        health: 7, speed: 125, turnRate: 2.3, wobble: 0.24,
+        legend: { kills: 6, health: 10, nuke: true, regen: 0.5 },
+        health: 8, speed: 125, turnRate: 2.3, wobble: 0.24,
         trailInterval: 0.055, fireInterval: 0.25,
         halfWidth: 28, halfHeight: 13
     }

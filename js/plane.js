@@ -148,7 +148,7 @@ class Plane {
 
     updateFlying(deltaTime, time) {
         if (this.perk?.regen) {
-            this.health = Math.min(this.stats.health, this.health + this.perk.regen * deltaTime);
+            this.health = Math.min(this.perk.health ?? this.stats.health, this.health + this.perk.regen * deltaTime);
         }
 
         this.updateLock(deltaTime);
