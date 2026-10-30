@@ -31,3 +31,6 @@ Key `2` toggles the settings panel (`settings.js`, `settingsPanel`): one slider 
 - New unit type → add const + `UNIT_STATS` row (config), sprite in `art.js`, behavior in `ground-unit.js`
 - New weapon → config constants, launch in owner entity, behavior branch in `projectile.js`, homing/ballistics in `movement.js`
 - Visual effect → `effects.js`
+
+## Player (branch `player`)
+`player.js` (`player`: mouse state, `player.plane` = `battle.planes[0]`, the first left-team fighter). `Plane.isPlayer` → `updatePlayer`: flies toward the cursor (`Movement.steerPlayerPlane`), LMB held = `shootGun`, RMB = `firePlayerRockets` (only when legendary, `perk.rockets`; homing if an enemy plane is in sights, otherwise ground rockets). Legend after `PLANE_STATS.fighter.legend.kills` kills; resets on death like any plane.

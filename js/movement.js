@@ -125,6 +125,31 @@ const Movement = {
         plane.angle += angleDifference * deltaTime * stats.turnRate * (pursuing ? PURSUIT_TURN_FACTOR : 1);
     },
 
+    // Літак гравця летить на курсор; біля землі, стелі та країв поля вирівнюється.
+    steerPlayerPlane(plane, targetX, targetY, deltaTime) {
+        const floor = world.groundLevel();
+        let desiredAngle = Math.atan2(targetY - plane.y, targetX - plane.x);
+
+        if (plane.y > floor - 100 && Math.sin(desiredAngle) > -0.3) {
+            desiredAngle = Math.cos(plane.angle) > 0 ? -0.65 : Math.PI + 0.65;
+        } else if (plane.y < 55 && Math.sin(desiredAngle) < 0.3) {
+            desiredAngle = Math.cos(plane.angle) > 0 ? 0.65 : Math.PI - 0.65;
+        }
+
+        if (plane.x > world.width - PLAYER_EDGE_MARGIN && Math.cos(desiredAngle) > 0) {
+            desiredAngle = Math.PI;
+        } else if (plane.x < PLAYER_EDGE_MARGIN && Math.cos(desiredAngle) < 0) {
+            desiredAngle = 0;
+        }
+
+        const angleDifference = Math.atan2(
+            Math.sin(desiredAngle - plane.angle),
+            Math.cos(desiredAngle - plane.angle)
+        );
+
+        plane.angle += angleDifference * deltaTime * plane.stats.turnRate * PLAYER_TURN_FACTOR;
+    },
+
     flyPlane(plane, deltaTime) {
         const speed = plane.stats.speed;
 

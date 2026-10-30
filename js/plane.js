@@ -157,19 +157,80 @@ class Plane {
             this.health = Math.min(this.perk.health ?? this.stats.health, this.health + this.perk.regen * deltaTime);
         }
 
+        this.reload -= deltaTime;
+        this.bombReload -= deltaTime;
+        this.rocketReload -= deltaTime;
+
+        if (this.isPlayer) {
+            this.updatePlayer(deltaTime);
+            return;
+        }
+
         this.updateLock(deltaTime);
         this.updatePursuit();
         Movement.steerPlane(this, deltaTime, time);
         Movement.flyPlane(this, deltaTime);
         this.emitTrail(deltaTime);
 
-        this.reload -= deltaTime;
-        this.bombReload -= deltaTime;
-        this.rocketReload -= deltaTime;
-
         this.tryDropBomb(deltaTime);
         this.tryLaunchRocket();
         this.tryShoot();
+    }
+
+    // --- Player ------------------------------------------------------------
+
+    get isPlayer() {
+        return !this.bomber && this === player.plane;
+    }
+
+    // Курс на курсор, ЛКМ утримується — стрільба, ПКМ — залп ракет легенди.
+    updatePlayer(deltaTime) {
+        if (player.hasMouse) {
+            Movement.steerPlayerPlane(this, player.mouseX, player.mouseY, deltaTime);
+        }
+
+        Movement.flyPlane(this, deltaTime);
+        this.emitTrail(deltaTime);
+
+        if (player.firing) {
+            this.shootGun();
+        }
+
+        if (player.rocketRequest) {
+            player.rocketRequest = false;
+            this.firePlayerRockets();
+        }
+    }
+
+    // Ракети за запитом: самонавідні, якщо ворожий літак у прицілі, інакше по землі.
+    firePlayerRockets() {
+        if (!this.perk?.rockets || this.rocketReload > 0) {
+            return;
+        }
+
+        const enemyPlane = this.findPlaneInSights(AIR_ROCKET_RANGE, 0.88);
+        let targetLane = this.flightLane;
+
+        if (!enemyPlane) {
+            const groundTarget = this.findGroundUnitInSights(GROUND_ROCKET_RANGE, 0.7);
+            targetLane = groundTarget ? groundTarget.lane : this.nearestLane();
+            this.flightLane = targetLane;
+        }
+
+        this.launchRockets(enemyPlane, targetLane);
+    }
+
+    // Лінія землі, найближча за висотою до літака, — туди й вибухне ракета без цілі.
+    nearestLane() {
+        let bestLane = 0;
+
+        for (let lane = 1; lane < LANE_OFFSETS.length; lane++) {
+            if (Math.abs(world.laneLevel(lane) - this.y) < Math.abs(world.laneLevel(bestLane) - this.y)) {
+                bestLane = lane;
+            }
+        }
+
+        return bestLane;
     }
 
     emitTrail(deltaTime) {
@@ -331,6 +392,11 @@ class Plane {
             this.flightLane = targetLane;
         }
 
+        this.launchRockets(enemyPlane, targetLane);
+    }
+
+    // Залп ракет: enemyPlane — ціль самонаведення (null = прямі ракети по землі своєї лінії).
+    launchRockets(enemyPlane, targetLane) {
         this.rocketReload = this.stats.rocketReload + Math.random();
 
         const rockets = this.perk.rockets;
@@ -552,9 +618,22 @@ class Plane {
             this.reload = FIGHTER_BURST_PAUSE;
         }
 
+        this.fireBullet(targetLane, this.bomber ? 0 : LOCK_PRECISION * Math.min(1, this.lockTime / LOCK_TIME));
+    }
+
+    // Безперервний вогонь гравця: без черг і захоплення, лише розкид.
+    shootGun() {
+        if (this.reload > 0) {
+            return;
+        }
+
+        this.reload = this.stats.fireInterval;
+        this.fireBullet(this.findGroundLaneInSights(), 0);
+    }
+
+    fireBullet(targetLane, precision) {
         const forwardX = Math.cos(this.angle);
         const forwardY = Math.sin(this.angle);
-        const precision = this.bomber ? 0 : LOCK_PRECISION * Math.min(1, this.lockTime / LOCK_TIME);
         const shotAngle = this.angle + (Math.random() - 0.5) * PLANE_GUN_SPREAD * (1 - precision);
 
         Projectile.fire({
