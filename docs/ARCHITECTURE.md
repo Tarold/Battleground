@@ -32,5 +32,5 @@ Key `2` toggles the settings panel (`settings.js`, `settingsPanel`): one slider 
 - New weapon → config constants, launch in owner entity, behavior branch in `projectile.js`, homing/ballistics in `movement.js`
 - Visual effect → `effects.js`
 
-## Player (branch `player`)
-`player.js` (`player`: mouse state, `player.plane` = `battle.planes[0]`, the first left-team fighter). `Plane.isPlayer` → `updatePlayer`: flies toward the cursor (`Movement.steerPlayerPlane`), LMB held = `shootGun`, RMB = `firePlayerRockets` (only when legendary, `perk.rockets`; homing if an enemy plane is in sights, otherwise ground rockets). Legend after `PLANE_STATS.fighter.legend.kills` kills; resets on death like any plane.
+## Player
+Key `3` toggles `player.enabled` (off by default); F1 shows shortcuts (`help.js`). `player.js` (`player`: mouse state, `player.plane` = `battle.planes[0]`, the first left-team fighter). `Plane.isPlayer` → `updatePlayer`: flies toward the cursor (`Movement.steerPlayerPlane`), LMB held = `shootGun`, RMB = `firePlayerRockets` (only when legendary, `perk.rockets`; homing if an enemy plane is in sights, otherwise ground rockets). Legend after `PLANE_STATS.fighter.legend.kills` kills; resets on death like any plane.

@@ -180,7 +180,7 @@ class Plane {
     // --- Player ------------------------------------------------------------
 
     get isPlayer() {
-        return !this.bomber && this === player.plane;
+        return player.enabled && !this.bomber && this === player.plane;
     }
 
     // Курс на курсор, ЛКМ утримується — стрільба, ПКМ — залп ракет легенди.
