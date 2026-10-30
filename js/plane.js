@@ -1,9 +1,11 @@
 'use strict';
 
 class Plane {
-    constructor(index) {
+    constructor(index, bomber) {
         this.team = index % 2;
-        this.bomber = index % 6 < 2;
+        this.bomber = bomber;
+        // Вимкнений повзунком літак стоїть у стані RESPAWNING і не з'являється.
+        this.enabled = true;
         this.state = PLANE_FLYING;
         this.x = 0;
         this.y = 0;
@@ -119,6 +121,10 @@ class Plane {
     }
 
     updateRespawning(deltaTime) {
+        if (!this.enabled) {
+            return;
+        }
+
         this.respawnTimer -= deltaTime;
 
         if (this.respawnTimer <= 0) {

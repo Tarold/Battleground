@@ -70,6 +70,13 @@ const Movement = {
     },
 
     stepSmoke(smoke, deltaTime) {
+        if (smoke.drag > 0) {
+            const damping = Math.exp(-smoke.drag * deltaTime);
+
+            smoke.velocityX *= damping;
+            smoke.velocityY *= damping;
+        }
+
         smoke.x += smoke.velocityX * deltaTime;
         smoke.y += smoke.velocityY * deltaTime;
     },
@@ -178,6 +185,16 @@ const Movement = {
         const flightTime = clamp(Math.abs(horizontalDistance) / 145, 1.25, 3.5);
 
         return this.lobbedShot(horizontalDistance, verticalDistance, flightTime, ARTILLERY_EXPLOSION_RADIUS);
+    },
+
+    // Ракета залпу РСЗВ: дуга з трохи випадковим часом польоту.
+    rocketSalvoShot(horizontalDistance, verticalDistance) {
+        const flightTime = clamp(
+            Math.abs(horizontalDistance) / 160 + (Math.random() - 0.5) * 0.28,
+            1.35, 3.3
+        );
+
+        return this.lobbedShot(horizontalDistance, verticalDistance, flightTime, ARTILLERY_ROCKET_RADIUS);
     },
 
     grenadeShot(horizontalDistance, verticalDistance) {

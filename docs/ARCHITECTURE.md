@@ -23,6 +23,9 @@ Key `1` toggles the top-score panel (`battle.showScores`, `battle.topScores(team
 Base AA and base fighter have only guns; AA missiles and fighter rockets are legend-only (`perk.missiles` / `perk.rockets`). Plane legends reset on death/respawn. Legend `health` is optional (bomber gets +2, and `regen` heals it up to that legend HP while flying). AA prefers bombers (`findAirTarget`), fires its missile salvo one by one; homing rockets retarget in a cone ahead when they miss (`Projectile.retargetRocket`).
 Promotion effect: `spawnLegendEffect` (beam, ring, `Banner`, slow-motion via `battle.slowTimer`). Nuke: `Projectile.detonateNuke` → `spawnNuclearExplosion` (flash via `battle.flash`).
 
+## Settings
+Key `2` toggles the settings panel (`settings.js`, `settingsPanel`): one slider per entity from `ENTITY_SETTINGS` (0 … `defaultCount * ENTITY_COUNT_MAX_FACTOR`). Values live in `settings.counts`; `battle.applySettings()` applies them. Ground units: cap on alive units per type, checked in `GroundUnit.deploy`, excess removed at once. Planes: pool is sized for the slider max (fighters then bombers); planes beyond the count get `enabled = false` and stay in `PLANE_RESPAWNING`.
+
 ## Where to change X
 - Balance numbers → `config.js`
 - New unit type → add const + `UNIT_STATS` row (config), sprite in `art.js`, behavior in `ground-unit.js`

@@ -60,17 +60,53 @@ const LANE_SCALES = [0.78, 0.9, 1];
 // Параметри наземних юнітів, індекс = тип юніта.
 // killValue = скільки вбивств зараховується тому, хто знищив цього юніта (legend.killValue — якщо він легенда).
 // legend: kills = скільки вбивств до статусу легенди, health = HP легенди,
-// решта полів — перки (shots, missiles, grenades, rockets, regen = HP/с, instantLock = без відліку захоплення). Без health легенда не отримує бонусу HP.
+// решта полів — перки (shots, artilleryRockets = залп ракет, burst = серія пострілів по черзі, missiles, grenades, rockets, regen = HP/с, instantLock = без відліку захоплення). Без health легенда не отримує бонусу HP.
 const UNIT_STATS = [
     { name: 'INFANTRY', health: 2, speed: 30, range: 145, reload: 0.8,  damage: 1, killValue: 0.5,
-        legend: { kills: 2, health: 5, grenades: true, killValue: 0.5 } },
+        legend: { kills: 2, health: 5, grenades: true,killValue: 0.5 } },
     { name: 'TANK', health: 9, speed: 22, range: 245, reload: 1.65, damage: 3, killValue: 1,
-        legend: { kills: 3, health: 16, shots: 2 } },
+        legend: { kills: 3, health: 16, burst: 2 } },
     { name: 'ANTI-AIR', health: 4, speed: 25, range: 430, reload: 0.5,  damage: 2, killValue: 1,
         legend: { kills: 5, health: 7, missiles: 2, turretFactor: 2 } },
     { name: 'ARTILLERY', health: 5, speed: 17, range: 650, reload: 3.8,  damage: 6, killValue: 1,
-        legend: { kills: 3, health: 9, shots: 5 } }
+        legend: { kills: 3, health: 9, artilleryRockets: 6 } }
 ];
+
+// Налаштування кількості сутностей (меню на клавіші 2).
+// Наземні юніти (індекс = тип, див. UNIT_STATS): defaultCount = скільки їх може бути одночасно (обидві команди разом).
+// Літаки: defaultCount = скільки їх літає одночасно (обидві команди разом).
+// Повзунок: від 0 до defaultCount * ENTITY_COUNT_MAX_FACTOR.
+const ENTITY_COUNT_MAX_FACTOR = 2;
+const ENTITY_SETTINGS = [
+    { id: 'infantry', label: 'INFANTRY', defaultCount: 30 },
+    { id: 'tank', label: 'TANK', defaultCount: 10 },
+    { id: 'antiaircraft', label: 'ANTI-AIR', defaultCount: 6 },
+    { id: 'artillery', label: 'ARTILLERY', defaultCount: 6 },
+    { id: 'fighter', label: 'FIGHTER', defaultCount: 8 },
+    { id: 'bomber', label: 'BOMBER', defaultCount: 4 }
+];
+
+// Поточні значення повзунків: id → кількість.
+const settings = {
+    counts: Object.fromEntries(ENTITY_SETTINGS.map(entry => [entry.id, entry.defaultCount])),
+
+    maxCount(id) {
+        return ENTITY_SETTINGS.find(entry => entry.id === id).defaultCount * ENTITY_COUNT_MAX_FACTOR;
+    }
+};
+
+// Піхота лягає, коли бачить наземного ворога на своїй лінії ближче за PRONE_SIGHT_RANGE (літаки ігноруються).
+// Лежача піхота: менша ціль для куль, менший радіус ураження вибухами, повзе повільніше, стріляє рідше.
+const PRONE_SIGHT_RANGE = 300;
+const PRONE_HOLD_TIME = 1.2;
+const PRONE_SPEED_FACTOR = 0.4;
+const PRONE_RELOAD_FACTOR = 1.3;
+const PRONE_BLAST_FACTOR = 0.45;
+const PRONE_HIT_HALF_HEIGHT = 3;
+const PRONE_HIT_HALF_WIDTH = 10;
+
+// Скільки вбивств отримує піхота за знищення ворожої піхоти (замість killValue піхоти).
+const INFANTRY_DUEL_KILL_VALUE = 1;
 
 // Швидкість повороту башти зенітки (рад/с) і допуск наведення перед пострілом.
 const AA_TURRET_SPEED = 1.4;
@@ -139,6 +175,8 @@ const AA_MISSILE_RELOAD = 7;
 const AA_MISSILE_SPEED = 250;
 const AA_MISSILE_TURN_RATE = 2.2;
 const AA_MISSILE_INTERVAL = 0.7;
+// Інтервал між пострілами серії легендарного танка (с).
+const TANK_BURST_INTERVAL = 0.22;
 // Одна ракета ППО вбиває звичайний винищувач (HP 6), але не легендарний (HP 9): для нього потрібні дві.
 // Радіо-підрив діє на відстані до 0.55 радіуса, тож мінімальна шкода ≈ 0.72 від повної.
 const AA_MISSILE_DAMAGE = 8.8;
@@ -169,11 +207,26 @@ const GRENADE_RADIUS = 38;
 const MULTISHOT_ANGLE = 0.04;
 const ARTILLERY_BARRAGE_SPREAD = 38;
 
+// Залп ракет легендарної артилерії (РСЗВ): ракети йдуть по черзі в смугу навколо зафіксованої цілі.
+const ARTILLERY_ROCKET_DAMAGE = 3;
+const ARTILLERY_ROCKET_RADIUS = 52;
+const ARTILLERY_ROCKET_INTERVAL = 0.22;
+const ARTILLERY_ROCKET_SPREAD = 165;
+const ARTILLERY_ROCKET_RELOAD = 7;
+
 // Ядерна бомба легендарного бомбардувальника (б'є по всіх, включно зі своїми).
 const NUKE_DAMAGE = 14;
 const NUKE_RADIUS = 280;
 const NUKE_RELOAD = 12;
 const NUKE_SLOWMO_TIME = 0.8;
+
+// Гальмування частинок хмари бомби (1/с): вони злітають і сповільнюються, тож не залітають надто високо.
+// Макс. підйом ≈ початкова швидкість / BOMB_CLOUD_DRAG; більше значення = нижча хмара.
+const BOMB_CLOUD_DRAG = 0.6;
+
+// Хмара ядерного вибуху: кількість частинок і множник розміру відносно хмари звичайної бомби.
+const NUKE_CLOUD_SCALE = 3.5;
+const NUKE_CLOUD_SIZE = 2.2;
 
 // ---------------------------------------------------------------------------
 // Helpers

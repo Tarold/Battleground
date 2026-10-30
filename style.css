@@ -8,3 +8,36 @@ body {
 canvas {
     display: block;
 }
+
+#settings {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 16px 20px;
+    background: rgba(12, 12, 16, 0.9);
+    border: 1px solid #66c2ff;
+    color: #66c2ff;
+    font: bold 14px monospace;
+}
+
+#settings[hidden] {
+    display: none;
+}
+
+.settings-title {
+    margin-bottom: 12px;
+    text-align: center;
+}
+
+.settings-row {
+    display: grid;
+    grid-template-columns: 100px 200px 30px;
+    align-items: center;
+    gap: 10px;
+    margin: 8px 0;
+}
+
+.settings-value {
+    text-align: right;
+}

@@ -10,9 +10,11 @@ class Smoke {
         this.life = 0;
         this.maximumLife = 1;
         this.fire = false;
+        this.drag = 0;
     }
 
     launch(x, y, velocityX, velocityY, fire, lifeScale) {
+        this.drag = 0;
         this.active = true;
         this.x = x + (Math.random() - 0.5) * 4;
         this.y = y + (Math.random() - 0.5) * 4;
@@ -49,23 +51,25 @@ function spawnSmoke(x, y, velocityX, velocityY, fire = false, lifeScale = 1) {
 }
 
 // Висока вертикальна хмара важкої бомби: стовп диму, що росте вгору, з "шапкою".
-function spawnBombCloud(x, y, scale = 1) {
+// scale — кількість частинок, size — множник швидкостей, тобто висоти й ширини хмари.
+function spawnBombCloud(x, y, scale = 1, size = 1) {
     const stemCount = Math.round(28 * scale);
     const capCount = Math.round(22 * scale);
 
     for (let index = 0; index < stemCount; index++) {
         const height = index / Math.max(1, stemCount - 1);
         const smoke = spawnSmoke(
-            x + (Math.random() - 0.5) * 10,
+            x + (Math.random() - 0.5) * 10 * size,
             y,
-            (Math.random() - 0.5) * 16,
+            (Math.random() - 0.5) * 16 * size,
             0,
             height < 0.35,
             2.2
         );
         smoke.maximumLife *= 1.4;
         smoke.life = smoke.maximumLife;
-        smoke.velocityY = -(15 + height * 55) - Math.random() * 8;
+        smoke.velocityY = (-(15 + height * 55) - Math.random() * 8) * size;
+        smoke.drag = BOMB_CLOUD_DRAG;
     }
 
     for (let index = 0; index < capCount; index++) {
@@ -73,8 +77,9 @@ function spawnBombCloud(x, y, scale = 1) {
         const smoke = spawnSmoke(x, y, 0, 0, false, 2.2);
         smoke.maximumLife *= 1.4;
         smoke.life = smoke.maximumLife;
-        smoke.velocityX = Math.cos(angle) * (15 + Math.random() * 20);
-        smoke.velocityY = -70 + Math.sin(angle) * 8 - Math.random() * 6;
+        smoke.velocityX = Math.cos(angle) * (15 + Math.random() * 20) * size;
+        smoke.velocityY = (-70 + Math.sin(angle) * 8 - Math.random() * 6) * size;
+        smoke.drag = BOMB_CLOUD_DRAG;
     }
 }
 
@@ -154,7 +159,7 @@ function spawnLegendEffect(x, y, name) {
 // Ядерний вибух: гриб, ударна хвиля, білий спалах на весь екран.
 function spawnNuclearExplosion(x, y) {
     spawnExplosion(x, y, 120);
-    spawnBombCloud(x, y, 2.5);
+    spawnBombCloud(x, y, NUKE_CLOUD_SCALE, NUKE_CLOUD_SIZE);
 
     const ringCount = 48;
 
@@ -179,9 +184,10 @@ function damageArea(x, radius, damage, team, targetLane, owner = null) {
         }
 
         const distance = Math.abs(unit.x - x);
+        const unitRadius = unit.prone ? radius * PRONE_BLAST_FACTOR : radius;
 
-        if (distance < radius) {
-            unit.takeDamage(damage * (1 - distance / radius * 0.6), owner);
+        if (distance < unitRadius) {
+            unit.takeDamage(damage * (1 - distance / unitRadius * 0.6), owner);
         }
     }
 }

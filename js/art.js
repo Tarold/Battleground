@@ -82,6 +82,12 @@ const Art = {
     },
 
     drawInfantry(unit, direction, time) {
+        if (unit.prone) {
+            // Лежачий піхотинець: тулуб і зброя вздовж землі.
+            context.fillText(direction === 1 ? '_o=-' : '-=o_', 0, 5);
+            return;
+        }
+
         const step = unit.moving && Math.sin(time * 10 + unit.animationPhase) > 0;
         const head = direction === 1
             ? (step ? 'o/' : 'o-')

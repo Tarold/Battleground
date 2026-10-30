@@ -13,11 +13,20 @@ class GroundUnit {
         this.specialReload = 0;
         this.missilesLeft = 0;
         this.missileTimer = 0;
+        this.burstLeft = 0;
+        this.burstTimer = 0;
+        this.salvoLeft = 0;
+        this.salvoTimer = 0;
+        this.salvoX = 0;
+        this.salvoY = 0;
+        this.salvoLane = 0;
         this.kills = 0;
         this.legendary = false;
         this.animationPhase = 0;
         this.aimAngle = 0;
         this.moving = false;
+        this.prone = false;
+        this.proneTimer = 0;
     }
 
     get stats() {
@@ -27,6 +36,13 @@ class GroundUnit {
     // Скільки вбивств отримує той, хто знищив цього юніта.
     get killValue() {
         return this.perk?.killValue ?? this.stats.killValue;
+    }
+
+    // Піхота, що вбила піхоту, отримує повне вбивство замість зниженого killValue.
+    killValueFor(attacker) {
+        const infantryDuel = this.type === INFANTRY && attacker instanceof GroundUnit && attacker.type === INFANTRY;
+
+        return infantryDuel ? INFANTRY_DUEL_KILL_VALUE : this.killValue;
     }
 
     // Перки легенди або null, якщо юніт звичайний.
@@ -54,6 +70,13 @@ class GroundUnit {
 
     // Розгортає юніта у першому вільному слоті пулу (якщо такий є).
     static deploy(team, type, lane, initialPosition = null) {
+        const limit = settings.counts[ENTITY_SETTINGS[type].id];
+        const alive = battle.groundUnits.filter(candidate => candidate.active && candidate.type === type).length;
+
+        if (alive >= limit) {
+            return;
+        }
+
         const unit = battle.groundUnits.find(candidate => !candidate.active);
 
         if (unit) {
@@ -75,11 +98,16 @@ class GroundUnit {
         this.specialReload = 2 + Math.random() * 3;
         this.missilesLeft = 0;
         this.missileTimer = 0;
+        this.burstLeft = 0;
+        this.burstTimer = 0;
+        this.salvoLeft = 0;
         this.kills = 0;
         this.legendary = false;
         this.animationPhase = Math.random() * 10;
         this.aimAngle = team === 0 ? -0.7 : -Math.PI + 0.7;
         this.moving = false;
+        this.prone = false;
+        this.proneTimer = 0;
     }
 
     // attacker — сутність, якій зараховується вбивство (може бути null).
@@ -90,7 +118,7 @@ class GroundUnit {
             this.destroy();
 
             if (attacker && attacker.team !== this.team) {
-                attacker.addKill(this.killValue);
+                attacker.addKill(this.killValueFor(attacker));
             }
         }
     }
@@ -124,6 +152,10 @@ class GroundUnit {
         this.specialReload -= deltaTime;
         this.moving = false;
 
+        if (this.type === INFANTRY) {
+            this.updateProne(deltaTime);
+        }
+
         if (this.perk?.missiles) {
             this.tryLaunchMissile(deltaTime);
         }
@@ -132,7 +164,16 @@ class GroundUnit {
             this.tryThrowGrenade();
         }
 
+        if (this.salvoLeft > 0) {
+            this.continueRocketSalvo(deltaTime);
+            return;
+        }
+
         const { target, airborne } = this.selectTarget();
+
+        if (this.burstLeft > 0) {
+            this.continueBurst(deltaTime, target, airborne);
+        }
 
         if (!target) {
             this.advance(deltaTime);
@@ -167,8 +208,26 @@ class GroundUnit {
         }
     }
 
+    // Піхота лягає, побачивши ворога, і встає лише через PRONE_HOLD_TIME після того, як той зник.
+    updateProne(deltaTime) {
+        if (this.seesEnemy()) {
+            this.proneTimer = PRONE_HOLD_TIME;
+        } else {
+            this.proneTimer = Math.max(0, this.proneTimer - deltaTime);
+        }
+
+        this.prone = this.proneTimer > 0;
+    }
+
+    // Літаки ігноруються: лягають лише від наземних ворогів.
+    seesEnemy() {
+        return this.findGroundTarget(PRONE_SIGHT_RANGE) !== null;
+    }
+
     advance(deltaTime) {
-        Movement.advanceGroundUnit(this, deltaTime);
+        const crawl = this.prone ? PRONE_SPEED_FACTOR : 1;
+
+        Movement.advanceGroundUnit(this, deltaTime * crawl);
         this.moving = true;
 
         if (Movement.isOutsideField(this)) {
@@ -253,8 +312,31 @@ class GroundUnit {
 
     // --- Shooting ----------------------------------------------------------
 
-    fire(target, airborne) {
-        const muzzleY = this.y - (this.type === INFANTRY ? 7 : 13);
+    // Наступні постріли серії легендарного танка: кожен заново наводиться на ціль.
+    continueBurst(deltaTime, target, airborne) {
+        if (!target) {
+            this.burstLeft = 0;
+            return;
+        }
+
+        this.burstTimer -= deltaTime;
+
+        if (this.burstTimer > 0) {
+            return;
+        }
+
+        this.burstLeft--;
+        this.burstTimer = TANK_BURST_INTERVAL;
+        this.fire(target, airborne, true);
+    }
+
+    fire(target, airborne, followUp = false) {
+        if (this.perk?.artilleryRockets) {
+            this.startRocketSalvo(target);
+            return;
+        }
+
+        const muzzleY = this.y - (this.type === INFANTRY ? (this.prone ? 3 : 7) : 13);
         const aim = Movement.groundShot(this, target, muzzleY, airborne);
 
         if (this.type === ANTIAIRCRAFT) {
@@ -268,7 +350,14 @@ class GroundUnit {
             this.aimAngle = Math.atan2(aim.velocityY, aim.velocityX);
         }
 
-        this.reload = this.stats.reload + Math.random() * 0.15;
+        if (!followUp) {
+            this.reload = (this.stats.reload + Math.random() * 0.15) * (this.prone ? PRONE_RELOAD_FACTOR : 1);
+
+            if (this.perk?.burst) {
+                this.burstLeft = this.perk.burst - 1;
+                this.burstTimer = TANK_BURST_INTERVAL;
+            }
+        }
 
         const muzzleX = this.x + Math.cos(this.aimAngle) * 19;
         const heavy = this.type !== INFANTRY;
@@ -297,13 +386,65 @@ class GroundUnit {
         spawnSmoke(muzzleX, muzzleY, Math.cos(this.aimAngle) * 25, -15, heavy, 0.35);
     }
 
-    // Протитанкова граната легендарної піхоти: навісом по найближчій техніці.
+    // Легендарна артилерія (РСЗВ) фіксує точку цілі й стоїть на місці, поки не випустить весь залп.
+    startRocketSalvo(target) {
+        this.salvoLeft = this.perk.artilleryRockets;
+        this.salvoTimer = 0;
+        this.salvoX = target.x;
+        this.salvoY = target.y;
+        this.salvoLane = target.lane;
+        this.reload = ARTILLERY_ROCKET_RELOAD + Math.random() * 1.5;
+    }
+
+    // Ракети залпу вилітають по черзі, кожна з власним розкидом точки прильоту.
+    continueRocketSalvo(deltaTime) {
+        this.salvoTimer -= deltaTime;
+
+        if (this.salvoTimer > 0) {
+            return;
+        }
+
+        this.salvoTimer = ARTILLERY_ROCKET_INTERVAL;
+        this.salvoLeft--;
+
+        const direction = this.team === 0 ? 1 : -1;
+        const muzzleX = this.x + direction * 8;
+        const muzzleY = this.y - 16;
+        const spread = (Math.random() - 0.5) * ARTILLERY_ROCKET_SPREAD;
+        const shot = Movement.rocketSalvoShot(
+            this.salvoX + spread - muzzleX,
+            this.salvoY - muzzleY
+        );
+
+        this.aimAngle = Math.atan2(shot.velocityY, shot.velocityX);
+
+        Projectile.fire({
+            x: muzzleX,
+            y: muzzleY,
+            velocityX: shot.velocityX,
+            velocityY: shot.velocityY,
+            team: this.team,
+            owner: this,
+            damage: ARTILLERY_ROCKET_DAMAGE,
+            heavy: true,
+            rocket: true,
+            gravity: shot.gravity,
+            explosionRadius: ARTILLERY_ROCKET_RADIUS,
+            targetLane: this.salvoLane,
+            life: 10
+        });
+
+        // Струмінь вогню та диму позаду пускової.
+        spawnSmoke(muzzleX - direction * 12, muzzleY + 3, -direction * (45 + Math.random() * 30), -10 - Math.random() * 15, true, 0.75);
+    }
+
+    // Граната легендарної піхоти: навісом по найближчому наземному ворогу (техніка чи піхота).
     tryThrowGrenade() {
         if (this.specialReload > 0) {
             return;
         }
 
-        const target = this.findGroundTarget(GRENADE_RANGE, 0, true);
+        const target = this.findGroundTarget(GRENADE_RANGE);
 
         if (!target) {
             return;

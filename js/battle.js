@@ -30,7 +30,9 @@ const battle = {
     smoke: Array.from({ length: 1000 }, () => new Smoke()),
     projectiles: Array.from({ length: 600 }, () => new Projectile()),
     groundUnits: Array.from({ length: 150 }, () => new GroundUnit()),
-    planes: Array.from({ length: 12 }, (_, index) => new Plane(index)),
+    // Пул літаків розрахований на максимум повзунка: спершу винищувачі, потім бомбардувальники.
+    planes: ['fighter', 'bomber'].flatMap(kind =>
+        Array.from({ length: settings.maxCount(kind) }, (_, index) => new Plane(index, kind === 'bomber'))),
     banners: Array.from({ length: 8 }, () => new Banner()),
     slowTimer: 0,
     flash: 0,
@@ -155,6 +157,8 @@ const battle = {
             plane.spawn();
         }
 
+        this.applySettings();
+
         for (const spawner of this.spawners) {
             const direction = spawner.team === 0 ? 1 : -1;
             const advanceSpace = Math.max(0, world.width * 0.5 - world.basePosition(0) - 45);
@@ -183,6 +187,45 @@ const battle = {
 
             GroundUnit.deploy(team, ANTIAIRCRAFT, antiaircraftLane);
             GroundUnit.deploy(team, ARTILLERY, artilleryLane);
+        }
+    },
+
+    // Застосовує повзунки: зайвих юнітів прибирає одразу, літаки вмикає/вимикає по порядку пулу.
+    applySettings() {
+        UNIT_STATS.forEach((_, type) => {
+            let excess = -settings.counts[ENTITY_SETTINGS[type].id];
+
+            for (const unit of this.groundUnits) {
+                if (unit.active && unit.type === type) {
+                    excess++;
+
+                    if (excess > 0) {
+                        unit.active = false;
+                    }
+                }
+            }
+        });
+
+        const used = { fighter: 0, bomber: 0 };
+
+        for (const plane of this.planes) {
+            const kind = plane.bomber ? 'bomber' : 'fighter';
+            const enabled = used[kind]++ < settings.counts[kind];
+
+            if (enabled === plane.enabled) {
+                continue;
+            }
+
+            plane.enabled = enabled;
+
+            if (!enabled) {
+                // Падаючий літак доживає своє, решта зникає одразу.
+                if (plane.state === PLANE_FLYING) {
+                    plane.state = PLANE_RESPAWNING;
+                }
+            } else if (plane.state === PLANE_RESPAWNING) {
+                plane.respawnTimer = 0.3 + Math.random() * 1.5;
+            }
         }
     },
 

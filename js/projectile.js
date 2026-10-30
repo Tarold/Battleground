@@ -238,16 +238,17 @@ class Projectile {
             }
 
             const scale = LANE_SCALES[unit.lane];
-            const halfWidth = (unit.type === INFANTRY ? 8 : 23) * scale;
-            const halfHeight = (unit.type === INFANTRY ? 8 : 10) * scale;
+            const halfWidth = (unit.prone ? PRONE_HIT_HALF_WIDTH : unit.type === INFANTRY ? 8 : 23) * scale;
+            const halfHeight = (unit.prone ? PRONE_HIT_HALF_HEIGHT : unit.type === INFANTRY ? 8 : 10) * scale;
+            const centerY = unit.y - (unit.prone ? 3 : 6);
 
-            if (!segmentHitsRectangle(this, unit.x, unit.y - 6, halfWidth, halfHeight)) {
+            if (!segmentHitsRectangle(this, unit.x, centerY, halfWidth, halfHeight)) {
                 continue;
             }
 
             if (this.explosionRadius > 0) {
                 this.x = unit.x;
-                this.y = unit.y - 6;
+                this.y = centerY;
                 this.detonate();
             } else {
                 this.active = false;
