@@ -201,6 +201,25 @@ class GroundUnit {
             return;
         }
 
+        if (this.type === ARTILLERY && !this.perk?.artilleryRockets) {
+            // Гармата теж повертає ствол з обмеженою швидкістю і стріляє лише навівшись.
+            const shot = Movement.groundShot(this, target, this.y - 13, false);
+            const desiredAngle = Math.atan2(shot.velocityY, shot.velocityX);
+
+            this.aimAngle = Movement.turnToward(this.aimAngle, desiredAngle, ARTILLERY_TURRET_SPEED * deltaTime);
+
+            const error = Math.abs(Math.atan2(
+                Math.sin(desiredAngle - this.aimAngle),
+                Math.cos(desiredAngle - this.aimAngle)
+            ));
+
+            if (this.reload <= 0 && error < ARTILLERY_TURRET_TOLERANCE) {
+                this.fire(target, false);
+            }
+
+            return;
+        }
+
         this.aimAngle = Math.atan2(target.y - this.y, target.x - this.x);
 
         if (this.reload <= 0) {
@@ -339,8 +358,8 @@ class GroundUnit {
         const muzzleY = this.y - (this.type === INFANTRY ? (this.prone ? 3 : 7) : 13);
         const aim = Movement.groundShot(this, target, muzzleY, airborne);
 
-        if (this.type === ANTIAIRCRAFT) {
-            // Зенітка стріляє туди, куди реально дивиться ствол.
+        if (this.type === ANTIAIRCRAFT || (this.type === ARTILLERY && !this.perk?.artilleryRockets)) {
+            // Зенітка і гармата стріляють туди, куди реально дивиться ствол.
             const speed = Math.hypot(aim.velocityX, aim.velocityY);
             const angle = this.aimAngle + (Math.random() - 0.5) * 0.018;
 
