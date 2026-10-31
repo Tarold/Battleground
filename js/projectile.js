@@ -130,10 +130,14 @@ class Projectile {
             }
 
             Movement.guideRocket(this, deltaTime);
-            this.emitRocketTrail(deltaTime);
         }
 
         Movement.stepProjectile(this, deltaTime);
+
+        // Шлейф після кроку, щоб брати вже оновлений кут і позицію (інакше полум'я відстає на повороті).
+        if (this.rocket) {
+            this.emitRocketTrail(deltaTime);
+        }
 
         if (this.hitPlane() || this.hitGroundUnit()) {
             return;
