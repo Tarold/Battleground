@@ -114,6 +114,10 @@ const battle = {
             Art.drawScores([this.topScores(0), this.topScores(1)]);
         }
 
+        if (player.enabled) {
+            Art.drawPlayerMode();
+        }
+
         if (this.flash > 0) {
             Art.drawFlash(this.flash);
         }

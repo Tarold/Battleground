@@ -138,6 +138,7 @@ const PLANE_STATS = {
 // Літак гравця: поворот швидший за ШІ, відступ від країв поля.
 const PLAYER_TURN_FACTOR = 1.3;
 const PLAYER_EDGE_MARGIN = 40;
+const PLAYER_MODE_COLOR = '#ffd966';
 
 // Килимове бомбардування: серія дрібніших бомб уздовж курсу бомбардувальника.
 const CARPET_BOMB_COUNT = 6;

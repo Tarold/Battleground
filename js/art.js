@@ -305,6 +305,16 @@ const Art = {
         context.restore();
     },
 
+    // Напис угорі екрана, поки ввімкнено режим гравця.
+    drawPlayerMode() {
+        context.save();
+        context.textAlign = 'center';
+        context.font = 'bold 18px monospace';
+        context.fillStyle = PLAYER_MODE_COLOR;
+        context.fillText('PLAYER MODE ON  [3] off  [F1] help', world.width / 2, 28);
+        context.restore();
+    },
+
     // --- Smoke -------------------------------------------------------------
 
     drawSmoke(smoke) {
