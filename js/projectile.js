@@ -42,6 +42,7 @@ class Projectile {
         this.bomb = false;
         this.nuke = false;
         this.owner = null;
+        this.ownerGeneration = 0;
         this.shell = false;
         this.rocket = false;
         this.big = false;
@@ -86,6 +87,7 @@ class Projectile {
         this.bomb = bomb;
         this.nuke = nuke;
         this.owner = owner;
+        this.ownerGeneration = owner?.generation;
         this.shell = shell;
         this.rocket = rocket;
         this.big = big;
@@ -100,6 +102,11 @@ class Projectile {
         this.targetLane = targetLane;
         this.impactY = world.impactLevel(targetLane);
         this.life = life ?? (shell || bomb ? 10 : 3);
+    }
+
+    // Власник пострілу або null, якщо його слот у пулі вже зайняла інша сутність.
+    get liveOwner() {
+        return this.owner?.generation === this.ownerGeneration ? this.owner : null;
     }
 
     update(deltaTime) {
@@ -223,7 +230,7 @@ class Projectile {
 
             this.active = false;
             spawnSmoke(this.x, this.y, plane.velocityX * 0.3, plane.velocityY * 0.3, true, 0.6);
-            plane.takeDamage(this.damage, this.owner);
+            plane.takeDamage(this.damage, this.liveOwner);
 
             return true;
         }
@@ -253,7 +260,7 @@ class Projectile {
             } else {
                 this.active = false;
                 spawnSmoke(this.x, this.y, 0, -20, true, 0.5);
-                unit.takeDamage(this.damage, this.owner);
+                unit.takeDamage(this.damage, this.liveOwner);
             }
 
             return true;
@@ -270,11 +277,11 @@ class Projectile {
         }
 
         if (this.planeBlastRadius > 0) {
-            damagePlanesArea(this.x, this.y, this.planeBlastRadius, this.damage, this.team, this.owner);
+            damagePlanesArea(this.x, this.y, this.planeBlastRadius, this.damage, this.team, this.liveOwner);
         }
 
         if (this.explosionRadius > 0) {
-            damageArea(this.x, this.explosionRadius, this.damage, this.team, this.targetLane, this.owner);
+            damageArea(this.x, this.explosionRadius, this.damage, this.team, this.targetLane, this.liveOwner);
         }
     }
 
@@ -283,10 +290,10 @@ class Projectile {
         spawnNuclearExplosion(this.x, this.y);
 
         for (let lane = 0; lane < LANE_OFFSETS.length; lane++) {
-            damageArea(this.x, NUKE_RADIUS, NUKE_DAMAGE, -1, lane, this.owner);
+            damageArea(this.x, NUKE_RADIUS, NUKE_DAMAGE, -1, lane, this.liveOwner);
         }
 
-        damagePlanesArea(this.x, this.y, NUKE_RADIUS, NUKE_DAMAGE, -1, this.owner);
+        damagePlanesArea(this.x, this.y, NUKE_RADIUS, NUKE_DAMAGE, -1, this.liveOwner);
     }
 
     detonate() {
@@ -309,7 +316,7 @@ class Projectile {
                 spawnBombCloud(this.x, this.y, 0.45);
             }
 
-            damageArea(this.x, this.explosionRadius, this.damage, this.team, this.targetLane, this.owner);
+            damageArea(this.x, this.explosionRadius, this.damage, this.team, this.targetLane, this.liveOwner);
         } else {
             spawnExplosion(this.x, this.y, this.heavy ? 8 : 3);
         }

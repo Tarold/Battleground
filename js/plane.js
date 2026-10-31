@@ -15,6 +15,7 @@ class Plane {
         this.targetAngle = 0;
         this.health = 1;
         this.kills = 0;
+        this.generation = 0;
         this.legendary = false;
         this.lockTarget = null;
         this.lockTime = 0;
@@ -49,6 +50,7 @@ class Plane {
         this.state = PLANE_FLYING;
         this.health = stats.health;
         this.kills = 0;
+        this.generation++;
         this.legendary = false;
         this.lockTarget = null;
         this.lockTime = 0;

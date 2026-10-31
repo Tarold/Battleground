@@ -23,6 +23,8 @@ class GroundUnit {
         this.salvoY = 0;
         this.salvoLane = 0;
         this.kills = 0;
+        // Лічильник «поколінь» слота пулу: снаряди не зараховують вбивства тому, хто з'явився після їхнього пострілу.
+        this.generation = 0;
         this.legendary = false;
         this.animationPhase = 0;
         this.aimAngle = 0;
@@ -88,6 +90,7 @@ class GroundUnit {
 
     spawn(team, type, lane, initialPosition) {
         this.active = true;
+        this.generation++;
         this.team = team;
         this.type = type;
         this.lane = lane;
