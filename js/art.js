@@ -4,10 +4,35 @@
 const Art = {
     SMOKE_CHARACTERS: ['@', '%', '#', '*', '+', ':', '.'],
 
+    // Спрайти літаків носом праворуч: шари тексту (column — колонка символів, row — рядок 0..2
+    // з кроком PLANE_LINE_HEIGHT, можна дробові) накладаються, як у техніки. Гвинти крутяться за кадрами.
+    // Для бомбардувальника корпус «сосиска»: _ з надкресленням, гвинт попереду крила.
     PLANE_SPRITES: {
-        fighter: { text: '0̳̅=/̸̚', offsetX: 0 },
-        bomber: { text: '0̳̅0̳̅==/̸̚', offsetX: -15 }
+        fighter: {
+            columns: 6,
+            layers: [
+                { text: '(\\_', column: 0, row: 0 },
+                { text: ' ===]', column: 0, row: 1 },
+                { text: '\\/', column: 2.5, row: 2 }
+            ],
+            props: [{ column: 5, rows: [1] }]
+        },
+        bomber: {
+            columns: 9,
+            layers: [
+                { text: '(‾\\', column: 0, row: 0 },
+                { text: '-\u0305' + '=\u0305'.repeat(2) + ' \u0305'.repeat(3) + '_)', column: 1, row: 1 },
+                { text: '\\_/', column: 4, row: 2 }
+            ],
+            props: [{ column: 7, rows: [2] }]
+        }
     },
+
+    // Кадри гвинта: [верх, центр, низ].
+    PROP_FRAMES: [
+        ['|', '|', '|'],
+        [':', ':', ':']
+    ],
 
     VEHICLE_SPRITES: {
         [TANK]: { top: '[=O=]', topY: -3, bottom: 'o===o' },
@@ -187,11 +212,24 @@ const Art = {
             context.scale(1, -1);
         }
 
-        context.scale(-1, 1);
         context.fillStyle = plane.state === PLANE_FALLING ? '#ff4422' : TEAM_COLORS[plane.team];
-        context.textAlign = 'center';
-        context.font = 'bold 20px monospace';
-        context.fillText(sprite.text, sprite.offsetX, 6);
+        context.textAlign = 'left';
+        context.textBaseline = 'middle';
+        context.font = `bold ${PLANE_FONT_SIZE}px monospace`;
+
+        const charWidth = context.measureText('M').width;
+        const left = -sprite.columns * charWidth / 2;
+        const propFrame = this.PROP_FRAMES[plane.state === PLANE_FALLING ? 0 : Math.floor(time * PLANE_PROP_FPS) % this.PROP_FRAMES.length];
+
+        for (const layer of sprite.layers) {
+            context.fillText(layer.text, left + layer.column * charWidth, (layer.row - 1) * PLANE_LINE_HEIGHT);
+        }
+
+        for (const prop of sprite.props) {
+            for (const row of prop.rows) {
+                context.fillText(propFrame[row], left + prop.column * charWidth, (row - 1) * PLANE_LINE_HEIGHT);
+            }
+        }
 
         context.restore();
 

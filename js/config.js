@@ -240,6 +240,11 @@ const AA_MISSILE_DAMAGE = 8.8;
 const AA_MISSILE_BLAST_RADIUS = 75;
 const PLANE_FALL_GRAVITY = 240;
 
+// Малювання літака: багаторядковий ASCII-спрайт, гвинт крутиться з частотою PLANE_PROP_FPS.
+const PLANE_FONT_SIZE = 14;
+const PLANE_LINE_HEIGHT = 6;
+const PLANE_PROP_FPS = 24;
+
 // Ракета, що промахнулась (ціль збита або лишилась позаду), шукає нову ціль у конусі попереду.
 const ROCKET_MISS_GRACE = 0.8;
 const ROCKET_RETARGET_RANGE = 420;
