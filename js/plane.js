@@ -180,10 +180,10 @@ class Plane {
     // --- Player ------------------------------------------------------------
 
     get isPlayer() {
-        return player.enabled && !this.bomber && this === player.plane;
+        return this === player.plane;
     }
 
-    // Курс на курсор, ЛКМ утримується — стрільба, ПКМ — залп ракет легенди.
+    // Курс на курсор, ЛКМ утримується — стрільба, ПКМ — ракети винищувача або бомби бомбардувальника.
     updatePlayer(deltaTime) {
         if (player.hasMouse) {
             Movement.steerPlayerPlane(this, player.mouseX, player.mouseY, deltaTime);
@@ -192,14 +192,43 @@ class Plane {
         Movement.flyPlane(this, deltaTime);
         this.emitTrail(deltaTime);
 
+        if (this.carpetBombsLeft > 0) {
+            this.continueCarpetBombing(deltaTime);
+        }
+
         if (player.firing) {
             this.shootGun();
         }
 
         if (player.rocketRequest) {
             player.rocketRequest = false;
-            this.firePlayerRockets();
+
+            if (this.bomber) {
+                this.dropPlayerBombs();
+            } else {
+                this.firePlayerRockets();
+            }
         }
+    }
+
+    // Бомби за запитом: килим або (легенда) ядерна бомба на лінію цілі під літаком.
+    dropPlayerBombs() {
+        if (this.bombReload > 0 || this.carpetBombsLeft > 0) {
+            return;
+        }
+
+        const lane = this.findBombingTarget()?.lane ?? this.flightLane;
+
+        this.flightLane = lane;
+
+        if (this.perk?.nuke) {
+            this.dropNuke(lane);
+            return;
+        }
+
+        this.carpetBombsLeft = CARPET_BOMB_COUNT;
+        this.carpetTimer = 0;
+        this.carpetLane = lane;
     }
 
     // Ракети за запитом: самонавідні, якщо ворожий літак у прицілі, інакше по землі.
@@ -306,7 +335,7 @@ class Plane {
         }
 
         if (this.perk?.nuke) {
-            this.dropNuke(bombingTarget);
+            this.dropNuke(bombingTarget.lane);
             return;
         }
 
@@ -317,9 +346,9 @@ class Plane {
     }
 
     // Легендарний бомбардувальник замість килима скидає одну ядерну бомбу.
-    dropNuke(bombingTarget) {
+    dropNuke(lane) {
         this.bombReload = NUKE_RELOAD;
-        this.flightLane = bombingTarget.lane;
+        this.flightLane = lane;
 
         Projectile.fire({
             x: this.x,
@@ -334,7 +363,7 @@ class Plane {
             nuke: true,
             big: true,
             gravity: GRAVITY,
-            targetLane: bombingTarget.lane,
+            targetLane: lane,
             explosionRadius: NUKE_RADIUS
         });
     }

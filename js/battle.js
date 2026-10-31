@@ -45,6 +45,8 @@ const battle = {
             spawner.update(deltaTime);
         }
 
+        player.update(deltaTime);
+
         for (const plane of this.planes) {
             plane.update(deltaTime, time);
         }
@@ -114,7 +116,7 @@ const battle = {
             Art.drawScores([this.topScores(0), this.topScores(1)]);
         }
 
-        if (player.enabled) {
+        if (player.messageTimer > 0) {
             Art.drawPlayerMode();
         }
 

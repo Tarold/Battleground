@@ -5,10 +5,11 @@ const HELP_LINES = [
     ['F1', 'this help'],
     ['1', 'top scores to legend'],
     ['2', 'settings'],
-    ['3', 'player mode on/off'],
+    ['3', 'player: fighter > bomber > off'],
     ['Mouse', 'player: fly to cursor'],
     ['Left click', 'player: machine gun'],
-    ['Right click', 'player: rockets (legend)']
+    ['Right click', 'fighter: rockets (legend)'],
+    ['', 'bomber: bombs / nuke (legend)']
 ];
 
 const helpPanel = {

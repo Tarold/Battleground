@@ -1,17 +1,42 @@
 'use strict';
 
-// Гравець керує першим винищувачем лівої команди: курсор — курс, ЛКМ — кулемет, ПКМ — ракети (лише легенда).
-// Режим вмикається клавішею 3; вимкнений — цей винищувач літає як ШІ.
+// Гравець керує першим літаком лівої команди: курсор — курс, ЛКМ — кулемет.
+// ПКМ: винищувач — ракети (лише легенда), бомбардувальник — килим бомб або ядерна бомба (легенда).
+// Клавіша 3 перемикає по колу: вимкнено → винищувач → бомбардувальник → вимкнено; вимкнений режим — літак летить як ШІ.
 const player = {
-    enabled: false,
+    mode: null,
+    message: '',
     mouseX: 0,
     mouseY: 0,
     hasMouse: false,
     firing: false,
     rocketRequest: false,
+    messageTimer: 0,
 
+    get enabled() {
+        return this.mode !== null;
+    },
+
+    // Літак під керуванням гравця або undefined, якщо режим вимкнений.
     get plane() {
-        return battle.planes[0];
+        if (this.mode === 'fighter') {
+            return battle.planes[0];
+        }
+
+        return this.mode === 'bomber' ? battle.planes.find(plane => plane.bomber) : undefined;
+    },
+
+    // Наступний режим по колу; попередній літак знову літає сам.
+    cycle() {
+        this.mode = PLAYER_MODES[(PLAYER_MODES.indexOf(this.mode) + 1) % PLAYER_MODES.length];
+        this.firing = false;
+        this.rocketRequest = false;
+        this.message = this.mode ? `PLAYER MODE ON: ${this.plane.stats.name}` : 'PLAYER MODE OFF';
+        this.messageTimer = PLAYER_MESSAGE_TIME;
+    },
+
+    update(deltaTime) {
+        this.messageTimer = Math.max(0, this.messageTimer - deltaTime);
     }
 };
 
@@ -51,9 +76,11 @@ window.addEventListener('contextmenu', event => {
 });
 
 window.addEventListener('keydown', event => {
-    if (event.key === '3' && !event.repeat) {
-        player.enabled = !player.enabled;
-        player.firing = false;
-        player.rocketRequest = false;
+    if (event.repeat) {
+        return;
+    }
+
+    if (event.key === '3') {
+        player.cycle();
     }
 });

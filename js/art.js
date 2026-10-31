@@ -305,13 +305,14 @@ const Art = {
         context.restore();
     },
 
-    // Напис угорі екрана, поки ввімкнено режим гравця.
+    // Напис угорі екрана при вмиканні/вимиканні режиму гравця: показується кілька секунд і згасає.
     drawPlayerMode() {
         context.save();
+        context.globalAlpha = Math.min(1, player.messageTimer / PLAYER_MESSAGE_FADE);
         context.textAlign = 'center';
         context.font = 'bold 18px monospace';
-        context.fillStyle = PLAYER_MODE_COLOR;
-        context.fillText('PLAYER MODE ON  [3] off  [F1] help', world.width / 2, 28);
+        context.fillStyle = player.enabled ? PLAYER_MODE_COLOR : PLAYER_MODE_OFF_COLOR;
+        context.fillText(player.message, world.width / 2, 28);
         context.restore();
     },
 

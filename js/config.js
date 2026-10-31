@@ -136,9 +136,13 @@ const PLANE_STATS = {
 };
 
 // Літак гравця: поворот швидший за ШІ, відступ від країв поля.
+const PLAYER_MODES = [null, 'fighter', 'bomber'];   // порядок перемикання клавішею 3
 const PLAYER_TURN_FACTOR = 1.3;
 const PLAYER_EDGE_MARGIN = 40;
 const PLAYER_MODE_COLOR = '#ffd966';
+const PLAYER_MODE_OFF_COLOR = '#ff8866';
+const PLAYER_MESSAGE_TIME = 2.5;   // скільки секунд видно напис про режим
+const PLAYER_MESSAGE_FADE = 0.8;   // останні секунди напис згасає
 
 // Килимове бомбардування: серія дрібніших бомб уздовж курсу бомбардувальника.
 const CARPET_BOMB_COUNT = 6;
