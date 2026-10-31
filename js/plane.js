@@ -1,9 +1,10 @@
 'use strict';
 
 class Plane {
-    constructor(index, bomber) {
+    // kind — ключ у PLANE_STATS ('fighter', 'bomber', 'heli').
+    constructor(index, kind) {
         this.team = index % 2;
-        this.bomber = bomber;
+        this.kind = kind;
         // Вимкнений повзунком літак стоїть у стані RESPAWNING і не з'являється.
         this.enabled = true;
         this.state = PLANE_FLYING;
@@ -35,8 +36,12 @@ class Plane {
         this.crashLane = -1;
     }
 
+    get bomber() {
+        return this.kind === 'bomber';
+    }
+
     get stats() {
-        return this.bomber ? PLANE_STATS.bomber : PLANE_STATS.fighter;
+        return PLANE_STATS[this.kind];
     }
 
     // Перки легенди або null, якщо літак звичайний.
@@ -144,10 +149,11 @@ class Plane {
         }
 
         const crashY = world.laneLevel(this.crashLane);
+        const stats = this.stats;
 
         if (this.y >= crashY - 5) {
-            spawnExplosion(this.x, crashY - 5, 35);
-            damageArea(this.x, 85, 10, -1, this.crashLane);
+            spawnExplosion(this.x, crashY - 5, stats.crashRadius * 0.4);
+            damageArea(this.x, stats.crashRadius, stats.crashDamage, -1, this.crashLane);
             this.scheduleRespawn();
         } else if (Movement.isPlaneOutsideField(this)) {
             this.scheduleRespawn();
@@ -571,20 +577,28 @@ class Plane {
         }
     }
 
-    // Найближчий ворожий бомбардувальник у радіусі погоні або null.
+    // Ворожий бомбардувальник або гелікоптер у радіусі погоні (бомбардувальник важливіший), інакше null.
     findPursuitTarget() {
         let nearestTarget = null;
         let nearestDistance = PLANE_PURSUIT_RANGE;
 
         for (const enemy of battle.planes) {
-            if (enemy.team === this.team || enemy.state !== PLANE_FLYING || !enemy.bomber) {
+            if (enemy.team === this.team || enemy.state !== PLANE_FLYING || enemy.kind === 'fighter') {
                 continue;
             }
 
             const { distance, alignment } = Movement.alignment(this, enemy.x, enemy.y);
 
             // Лише ті, що попереду: розвертатися на ціль позаду не потрібно.
-            if (alignment > PURSUIT_CONE && distance < nearestDistance) {
+            if (alignment <= PURSUIT_CONE || distance >= PLANE_PURSUIT_RANGE) {
+                continue;
+            }
+
+            const better = !nearestTarget ||
+                (enemy.bomber && !nearestTarget.bomber) ||
+                (enemy.bomber === nearestTarget.bomber && distance < nearestDistance);
+
+            if (better) {
                 nearestTarget = enemy;
                 nearestDistance = distance;
             }

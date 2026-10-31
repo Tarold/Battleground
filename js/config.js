@@ -83,7 +83,8 @@ const ENTITY_SETTINGS = [
     { id: 'antiaircraft', label: 'ANTI-AIR', defaultCount: 6 },
     { id: 'artillery', label: 'ARTILLERY', defaultCount: 6 },
     { id: 'fighter', label: 'FIGHTER', defaultCount: 8 },
-    { id: 'bomber', label: 'BOMBER', defaultCount: 4 }
+    { id: 'bomber', label: 'BOMBER', defaultCount: 4 },
+    { id: 'heli', label: 'HELICOPTER', defaultCount: 4 }
 ];
 
 // Поточні значення повзунків: id → кількість.
@@ -118,22 +119,63 @@ const ARTILLERY_TURRET_SPEED = 0.9;
 const ARTILLERY_TURRET_TOLERANCE = 0.06;
 const ARTILLERY_EXPLOSION_RADIUS = 72;
 
+// Види літальних апаратів у порядку пулу (battle.planes) і таблиці рахунку.
+const PLANE_KINDS = ['fighter', 'bomber', 'heli'];
+
+// crashRadius / crashDamage — шкода по землі, коли збитий апарат падає на лінію.
 const PLANE_STATS = {
     fighter: {
         name: 'FIGHTER',
         legend: { kills: 3, health: 9, rockets: 2, instantLock: true },
         health: 6, speed: 180, turnRate: 3.5, wobble: 0.48,
         trailInterval: 0.04, fireInterval: 0.13, rocketReload: 4.5,
-        halfWidth: 20, halfHeight: 10
+        halfWidth: 20, halfHeight: 10, crashRadius: 85, crashDamage: 10
     },
     bomber: {
         name: 'BOMBER',
         legend: { kills: 6, health: 10, nuke: true, regen: 0.5 },
         health: 8, speed: 125, turnRate: 2.3, wobble: 0.24,
         trailInterval: 0.055, fireInterval: 0.25,
-        halfWidth: 28, halfHeight: 13
+        halfWidth: 28, halfHeight: 13, crashRadius: 85, crashDamage: 10
+    },
+    // Гелікоптер: малий, слабкий, висить низько над полем; кулеметна турель, легенда — ракети.
+    // acceleration — як швидко швидкість наближається до бажаної (1/с).
+    heli: {
+        name: 'HELICOPTER',
+        legend: { kills: 3, health: 6, rockets: 4 },
+        health: 3, speed: 75, acceleration: 1.6,
+        fireInterval: 0.11,
+        halfWidth: 14, halfHeight: 8, crashRadius: 45, crashDamage: 4
     }
 };
+
+// Гелікоптер: висота польоту над землею (пікселі), відстань зависання від цілі, огляд для підльоту.
+const HELI_MIN_ALTITUDE = 95;
+const HELI_MAX_ALTITUDE = 190;
+const HELI_HOVER_BOB = 7;
+const HELI_STANDOFF = 210;
+const HELI_SIGHT_RANGE = 650;
+const HELI_MAX_TILT = 0.22;
+
+// Кулеметна турель гелікоптера: черги з дрібних куль, турель повертається окремо від корпусу.
+const HELI_GUN_RANGE = 330;
+const HELI_AIR_RANGE = 280;
+const HELI_GUN_SPEED = 520;
+const HELI_GUN_DAMAGE = 0.45;
+const HELI_GUN_SPREAD = 0.07;
+const HELI_BURST_SIZE = 6;
+const HELI_BURST_PAUSE = 1.8;
+const HELI_TURRET_SPEED = 2.2;
+const HELI_TURRET_TOLERANCE = 0.15;
+
+// Некеровані ракети легендарного гелікоптера: залп по одній у наземну ціль.
+const HELI_ROCKET_RANGE = 420;
+const HELI_ROCKET_SPEED = 300;
+const HELI_ROCKET_DAMAGE = 3;
+const HELI_ROCKET_RADIUS = 40;
+const HELI_ROCKET_INTERVAL = 0.16;
+const HELI_ROCKET_SPREAD = 30;
+const HELI_ROCKET_RELOAD = 6;
 
 // Літак гравця: поворот швидший за ШІ, відступ від країв поля.
 const PLAYER_MODES = [null, 'fighter', 'bomber'];   // порядок перемикання клавішею 3

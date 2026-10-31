@@ -203,6 +203,67 @@ const Art = {
         }
     },
 
+    // Гелікоптер: ротор, що блимає (обертається), корпус носом у бік facing, полози; турель малюється окремо.
+    drawHelicopter(heli, time) {
+        const falling = heli.state === PLANE_FALLING;
+
+        context.save();
+        context.translate(heli.x, heli.y);
+        // Збитий гелікоптер закручується.
+        context.rotate(falling ? time * 7 : heli.tilt);
+        context.scale(heli.facing, 1);
+
+        if (heli.legendary) {
+            context.shadowColor = LEGEND_COLOR;
+            context.shadowBlur = 12;
+        }
+
+        const color = falling ? '#ff4422' : TEAM_COLORS[heli.team];
+
+        context.fillStyle = color;
+        context.strokeStyle = color;
+        context.textAlign = 'center';
+        context.font = 'bold 14px monospace';
+        context.fillText(Math.sin(time * 40) > 0 ? '‾‾‾‾+‾‾‾‾' : '‾‾ + ‾‾', 3, -6);
+        context.fillText('+=-[O>', 0, 5);
+
+        // Полози.
+        context.lineWidth = 1.5;
+        context.beginPath();
+        context.moveTo(-4, 11);
+        context.lineTo(14, 11);
+        context.stroke();
+
+        // Ракетний блок легенди під корпусом.
+        if (heli.legendary) {
+            context.fillText('=', 2, 13);
+        }
+
+        context.restore();
+
+        if (falling) {
+            return;
+        }
+
+        // Кулеметна турель під носом, кут у світових координатах.
+        const muzzle = heli.muzzle;
+
+        context.save();
+        context.strokeStyle = TEAM_COLORS[heli.team];
+        context.lineWidth = 2;
+        context.beginPath();
+        context.moveTo(muzzle.x, muzzle.y);
+        context.lineTo(muzzle.x + Math.cos(heli.turretAngle) * 9, muzzle.y + Math.sin(heli.turretAngle) * 9);
+        context.stroke();
+
+        if (heli.legendary) {
+            context.textAlign = 'center';
+            this.drawLegendStar(heli.x, heli.y - 20, time);
+        }
+
+        context.restore();
+    },
+
     // --- Projectiles -------------------------------------------------------
 
     projectileSymbol(projectile) {

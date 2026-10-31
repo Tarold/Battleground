@@ -30,9 +30,10 @@ const battle = {
     smoke: Array.from({ length: 1000 }, () => new Smoke()),
     projectiles: Array.from({ length: 600 }, () => new Projectile()),
     groundUnits: Array.from({ length: 150 }, () => new GroundUnit()),
-    // Пул літаків розрахований на максимум повзунка: спершу винищувачі, потім бомбардувальники.
-    planes: ['fighter', 'bomber'].flatMap(kind =>
-        Array.from({ length: settings.maxCount(kind) }, (_, index) => new Plane(index, kind === 'bomber'))),
+    // Пул літаків розрахований на максимум повзунка: винищувачі, бомбардувальники, гелікоптери (порядок PLANE_KINDS).
+    planes: PLANE_KINDS.flatMap(kind =>
+        Array.from({ length: settings.maxCount(kind) }, (_, index) =>
+            kind === 'heli' ? new Helicopter(index) : new Plane(index, kind))),
     banners: Array.from({ length: 8 }, () => new Banner()),
     slowTimer: 0,
     flash: 0,
@@ -131,7 +132,7 @@ const battle = {
             name: stats.name, kills: 0, needed: stats.legend.kills, legendary: false
         }));
 
-        for (const kind of ['fighter', 'bomber']) {
+        for (const kind of PLANE_KINDS) {
             rows.push({
                 name: PLANE_STATS[kind].name, kills: 0,
                 needed: PLANE_STATS[kind].legend.kills, legendary: false
@@ -148,7 +149,7 @@ const battle = {
 
         for (const plane of this.planes) {
             if (plane.team === team && plane.state !== PLANE_RESPAWNING) {
-                const row = rows[UNIT_STATS.length + (plane.bomber ? 1 : 0)];
+                const row = rows[UNIT_STATS.length + PLANE_KINDS.indexOf(plane.kind)];
                 row.kills = Math.max(row.kills, plane.kills);
                 row.legendary = row.legendary || plane.legendary;
             }
@@ -212,11 +213,10 @@ const battle = {
             }
         });
 
-        const used = { fighter: 0, bomber: 0 };
+        const used = Object.fromEntries(PLANE_KINDS.map(kind => [kind, 0]));
 
         for (const plane of this.planes) {
-            const kind = plane.bomber ? 'bomber' : 'fighter';
-            const enabled = used[kind]++ < settings.counts[kind];
+            const enabled = used[plane.kind]++ < settings.counts[plane.kind];
 
             if (enabled === plane.enabled) {
                 continue;

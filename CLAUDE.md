@@ -4,7 +4,7 @@ Vanilla JS canvas game (no build, no deps, no tests). Open `index.html` in a bro
 Comments in code are in Ukrainian; match that style. Use 4-space indent, `'use strict'`, single quotes.
 
 ## Rules
-- Plain `<script>` tags, global scope. **Load order matters** (see `index.html`): config → movement → art → effects → projectile → ground-unit → plane → player → battle → settings → help. New file = add a `<script>` tag.
+- Plain `<script>` tags, global scope. **Load order matters** (see `index.html`): config → movement → art → effects → projectile → ground-unit → plane → helicopter → player → battle → settings → help. New file = add a `<script>` tag.
 - Tunables/constants go in `js/config.js`, not inline.
 - `movement.js` = math/physics only; `art.js` = drawing only; entities own state + behavior.
 - Pooled objects (`Smoke`, `Projectile`, `GroundUnit`) are reused via `spawn`/`launch`/`fire` — don't `new` per event.

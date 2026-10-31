@@ -8,7 +8,8 @@
 | `effects.js` | `Smoke`, `Banner` classes + `spawnSmoke`, `spawnBombCloud`, `spawnExplosion`, `spawnLegendEffect`, `spawnNuclearExplosion`; area damage: `damageArea` (ground), `damagePlanesArea` |
 | `projectile.js` | `segmentHitsRectangle`, `Projectile` (`static fire(options)`, `update`, `hitPlane`, `hitGroundUnit`, `detonate`, `detonateRocket`, `draw`) — covers bullets, shells, bombs, rockets, AA missiles |
 | `ground-unit.js` | `GroundUnit`: types INFANTRY/TANK/ANTIAIRCRAFT/ARTILLERY; `deploy`, `spawn`, `update`, `selectTarget`, `findGroundTarget`, `findAirTarget`, `fire`, `tryLaunchMissile` (AA), `draw` |
-| `plane.js` | `Plane`: fighter/bomber; states FLYING/FALLING/RESPAWNING; `tryShoot`, `tryLaunchRocket`, `tryDropBomb`, `continueCarpetBombing`, targeting helpers, `draw` |
+| `plane.js` | `Plane(index, kind)`: `kind` = key in `PLANE_STATS` (`bomber` is a getter); states FLYING/FALLING/RESPAWNING; `tryShoot`, `tryLaunchRocket`, `tryDropBomb`, `continueCarpetBombing`, targeting helpers, `draw` |
+| `helicopter.js` | `Helicopter extends Plane` (kind `'heli'`): hovers low near the nearest enemy ground unit (`hover` → `Movement.steerHeli`), minigun turret with its own `turretAngle` (`findTarget`, `aimTurret`, `tryShoot` in bursts), legend fires an unguided rocket salvo (`tryLaunchRocket`/`continueSalvo`); `draw` → `Art.drawHelicopter` |
 | `battle.js` | `GroundSpawner`, `battle` (`update`, `render`, `deployInitialForces`, `handleResize`), main `loop` |
 
 ## Flow
@@ -22,6 +23,9 @@ Only bombers can become legends among planes (fighter has no `legend`); killing 
 Key `1` toggles the top-score panel (`battle.showScores`, `battle.topScores(team)` → `Art.drawScores`): best kills per type vs. kills needed for legend.
 Base AA and base fighter have only guns; AA missiles and fighter rockets are legend-only (`perk.missiles` / `perk.rockets`). Plane legends reset on death/respawn. Legend `health` is optional (bomber gets +2, and `regen` heals it up to that legend HP while flying). AA prefers bombers (`findAirTarget`), fires its missile salvo one by one; homing rockets retarget in a cone ahead when they miss (`Projectile.retargetRocket`).
 Promotion effect: `spawnLegendEffect` (beam, ring, `Banner`, slow-motion via `battle.slowTimer`). Nuke: `Projectile.detonateNuke` → `spawnNuclearExplosion` (flash via `battle.flash`).
+
+## Helicopters
+Live in `battle.planes` (pool order `PLANE_KINDS`: fighter, bomber, heli), so AA, fighter guns, missiles and `damagePlanesArea` hit them like any plane; falling/respawn reuse `Plane`. Tunables: `PLANE_STATS.heli` and `HELI_*` in config. Target priority: enemy heli in `HELI_AIR_RANGE` → ground unit in `HELI_GUN_RANGE` (any lane) → other plane. Fighters pursue enemy bombers first, then helicopters (`Plane.findPursuitTarget`). Crash damage per kind: `PLANE_STATS[kind].crashRadius` / `crashDamage`. Not available in player mode.
 
 ## Settings
 Key `2` toggles the settings panel (`settings.js`, `settingsPanel`): one slider per entity from `ENTITY_SETTINGS` (0 … `defaultCount * ENTITY_COUNT_MAX_FACTOR`). Values live in `settings.counts`; `battle.applySettings()` applies them. Ground units: cap on alive units per type, checked in `GroundUnit.deploy`, excess removed at once. Planes: pool is sized for the slider max (fighters then bombers); planes beyond the count get `enabled = false` and stay in `PLANE_RESPAWNING`.

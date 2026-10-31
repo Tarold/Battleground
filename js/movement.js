@@ -159,6 +159,21 @@ const Movement = {
         plane.y += plane.velocityY * deltaTime;
     },
 
+    // Гелікоптер плавно розганяється до точки (targetX, targetY) і гальмує біля неї;
+    // корпус нахиляється вперед по ходу руху.
+    steerHeli(heli, targetX, targetY, deltaTime) {
+        const stats = heli.stats;
+        const desiredVelocityX = clamp((targetX - heli.x) * 1.2, -stats.speed, stats.speed);
+        const desiredVelocityY = clamp((targetY - heli.y) * 1.5, -stats.speed * 0.6, stats.speed * 0.6);
+        const blend = 1 - Math.exp(-stats.acceleration * deltaTime);
+
+        heli.velocityX += (desiredVelocityX - heli.velocityX) * blend;
+        heli.velocityY += (desiredVelocityY - heli.velocityY) * blend;
+        heli.x += heli.velocityX * deltaTime;
+        heli.y += heli.velocityY * deltaTime;
+        heli.tilt = clamp(heli.velocityX / stats.speed, -1, 1) * HELI_MAX_TILT;
+    },
+
     fallPlane(plane, deltaTime) {
         plane.velocityY += PLANE_FALL_GRAVITY * deltaTime;
         plane.x += plane.velocityX * deltaTime;
