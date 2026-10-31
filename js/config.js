@@ -62,7 +62,7 @@ const LANE_SCALES = [0.78, 0.9, 1];
 // legend: kills = скільки вбивств до статусу легенди, health = HP легенди,
 // решта полів — перки (shots, artilleryRockets = залп ракет, burst = серія пострілів по черзі, missiles, rpg, rockets, regen = HP/с, instantLock = без відліку захоплення). Без health легенда не отримує бонусу HP.
 const UNIT_STATS = [
-    { name: 'INFANTRY', health: 2, speed: 30, range: 145, reload: 0.8,  damage: 1, killValue: 0.5,
+    { name: 'INFANTRY', health: 2, speed: 30, range: 290, reload: 0.8,  damage: 1, killValue: 0.5,
         legend: { kills: 2, health: 5, rpg: true, killValue: 0.5 } },
     { name: 'TANK', health: 9, speed: 22, range: 245, reload: 1.65, damage: 3, killValue: 1,
         legend: { kills: 3, health: 16, burst: 2 } },
@@ -156,6 +156,10 @@ const HELI_HOVER_BOB = 7;
 const HELI_STANDOFF = 210;
 const HELI_SIGHT_RANGE = 650;
 const HELI_MAX_TILT = 0.22;
+const HELI_PLAYER_MIN_ALTITUDE = 50;   // нижче гравець опуститися не може
+const HELI_PLAYER_LEASH = 150;         // ближче до курсора гелікоптер гравця не підлітає — висить і цілиться
+const HELI_PLAYER_AIM_CONE = 0.97;     // косинус: юніт у цьому секторі турелі задає лінію пострілу
+const HELI_PLAYER_CURSOR_PICK = 45;   // ворог ближче до курсора (px) задає лінію вибуху ракет гравця
 
 // Кулеметна турель гелікоптера: черги з дрібних куль, турель повертається окремо від корпусу.
 const HELI_GUN_RANGE = 330;
@@ -178,7 +182,7 @@ const HELI_ROCKET_SPREAD = 30;
 const HELI_ROCKET_RELOAD = 6;
 
 // Літак гравця: поворот швидший за ШІ, відступ від країв поля.
-const PLAYER_MODES = [null, 'fighter', 'bomber'];   // порядок перемикання клавішею 3
+const PLAYER_MODES = [null, 'fighter', 'bomber', 'heli'];   // порядок перемикання клавішею 3
 const PLAYER_TURN_FACTOR = 1.3;
 const PLAYER_EDGE_MARGIN = 40;
 const PLAYER_MODE_COLOR = '#ffd966';

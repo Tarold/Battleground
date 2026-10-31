@@ -18,6 +18,7 @@ class Helicopter extends Plane {
         this.salvoTarget = null;
         this.salvoGeneration = 0;
         this.salvoX = 0;
+        this.salvoY = 0;
         this.salvoLane = 0;
     }
 
@@ -49,11 +50,122 @@ class Helicopter extends Plane {
         this.reload -= deltaTime;
         this.rocketReload -= deltaTime;
 
+        if (this.isPlayer) {
+            this.updatePlayer(deltaTime);
+            return;
+        }
+
         this.target = this.findTarget();
         this.hover(deltaTime, time);
         this.aimTurret(deltaTime);
         this.tryShoot();
         this.tryLaunchRocket(deltaTime);
+    }
+
+    // --- Player ------------------------------------------------------------
+
+    // Гелікоптер тримається на «повідку» від курсора: далі HELI_PLAYER_LEASH — підтягується, ближче — висить.
+    // Турель цілиться на курсор; ЛКМ утримується — мініган, ПКМ — залп ракет легенди в точку курсора.
+    updatePlayer(deltaTime) {
+        this.target = null;
+
+        if (player.hasMouse) {
+            const distanceX = player.mouseX - this.x;
+            const distanceY = player.mouseY - this.y;
+            const distance = Math.hypot(distanceX, distanceY);
+            const pull = Math.max(0, distance - HELI_PLAYER_LEASH) / Math.max(distance, 1);
+            const goalX = clamp(this.x + distanceX * pull, PLAYER_EDGE_MARGIN, world.width - PLAYER_EDGE_MARGIN);
+            const goalY = clamp(this.y + distanceY * pull, 55, world.groundLevel() - HELI_PLAYER_MIN_ALTITUDE);
+            const muzzle = this.muzzle;
+            const aimAngle = Math.atan2(player.mouseY - muzzle.y, player.mouseX - muzzle.x);
+
+            Movement.steerHeli(this, goalX, goalY, deltaTime);
+            this.facing = Math.sign(distanceX) || this.facing;
+            this.turretAngle = Movement.turnToward(this.turretAngle, aimAngle, HELI_TURRET_SPEED * deltaTime);
+        }
+
+        this.angle = this.facing === 1 ? 0 : Math.PI;
+
+        if (player.firing && this.reload <= 0) {
+            this.fireMinigun(this.playerAimLane());
+        }
+
+        if (player.rocketRequest) {
+            player.rocketRequest = false;
+
+            if (this.perk?.rockets && this.rocketReload <= 0 && this.salvoLeft === 0) {
+                this.startSalvo(null, player.mouseX, player.mouseY, this.cursorLane());
+            }
+        }
+
+        if (this.salvoLeft > 0) {
+            this.continueSalvo(deltaTime);
+        }
+    }
+
+    // Лінія для ракет гравця: ворожий юніт під курсором, інакше лінія, найближча до курсора.
+    cursorLane() {
+        let nearestUnit = null;
+        let nearestDistance = HELI_PLAYER_CURSOR_PICK;
+
+        for (const unit of battle.groundUnits) {
+            if (!unit.active || unit.team === this.team) {
+                continue;
+            }
+
+            const distance = Math.hypot(unit.x - player.mouseX, unit.y - 6 - player.mouseY);
+
+            if (distance < nearestDistance) {
+                nearestUnit = unit;
+                nearestDistance = distance;
+            }
+        }
+
+        return nearestUnit ? nearestUnit.lane : this.laneNearestTo(player.mouseY);
+    }
+
+    // Лінія землі, найближча за висотою до y.
+    laneNearestTo(y) {
+        let bestLane = 0;
+
+        for (let lane = 1; lane < LANE_OFFSETS.length; lane++) {
+            if (Math.abs(world.laneLevel(lane) - y) < Math.abs(world.laneLevel(bestLane) - y)) {
+                bestLane = lane;
+            }
+        }
+
+        return bestLane;
+    }
+
+    // Лінія для куль гравця: ворожий юніт на лінії турелі, інакше лінія, найближча до курсора.
+    playerAimLane() {
+        const forwardX = Math.cos(this.turretAngle);
+        const forwardY = Math.sin(this.turretAngle);
+        let bestAlignment = HELI_PLAYER_AIM_CONE;
+        let bestUnit = null;
+
+        for (const unit of battle.groundUnits) {
+            if (!unit.active || unit.team === this.team) {
+                continue;
+            }
+
+            const distanceX = unit.x - this.x;
+            const distanceY = unit.y - 6 - this.y;
+            const distance = Math.hypot(distanceX, distanceY);
+
+            if (distance < 1) {
+                continue;
+            }
+
+            const alignment = (distanceX * forwardX + distanceY * forwardY) / distance;
+
+            if (alignment > bestAlignment) {
+                bestAlignment = alignment;
+                bestUnit = unit;
+            }
+        }
+
+        return bestUnit ? bestUnit.lane : this.laneNearestTo(player.mouseY);
     }
 
     // --- Movement ----------------------------------------------------------
@@ -199,13 +311,19 @@ class Helicopter extends Plane {
         // Літак має state, наземний юніт — лінію.
         const targetLane = target.state === undefined ? target.lane : -1;
 
+        this.fireMinigun(targetLane);
+    }
+
+    // Один постріл турелі в її поточному напрямку; ШІ після HELI_BURST_SIZE пострілів робить довшу паузу,
+    // гравець стріляє безперервно.
+    fireMinigun(targetLane) {
         if (targetLane >= 0) {
             this.flightLane = targetLane;
         }
 
         this.reload = this.stats.fireInterval;
 
-        if (--this.burstLeft === 0) {
+        if (!this.isPlayer && --this.burstLeft === 0) {
             this.burstLeft = HELI_BURST_SIZE;
             this.reload = HELI_BURST_PAUSE;
         }
@@ -248,12 +366,18 @@ class Helicopter extends Plane {
             return;
         }
 
+        this.startSalvo(target, target.x, target.y - 6, target.lane);
+    }
+
+    // target — юніт, за яким стежать ракети (null = точка x, y); lane — лінія, де ракети вибухають.
+    startSalvo(target, x, y, lane) {
         this.salvoLeft = this.perk.rockets;
         this.salvoTimer = 0;
         this.salvoTarget = target;
-        this.salvoGeneration = target.generation;
-        this.salvoX = target.x;
-        this.salvoLane = target.lane;
+        this.salvoGeneration = target?.generation;
+        this.salvoX = x;
+        this.salvoY = y;
+        this.salvoLane = lane;
     }
 
     continueSalvo(deltaTime) {
@@ -273,10 +397,11 @@ class Helicopter extends Plane {
         // Слот пулу міг дістатися іншому юніту — тоді б'ємо в запам'ятовану точку.
         if (this.salvoTarget?.active && this.salvoTarget.generation === this.salvoGeneration) {
             this.salvoX = this.salvoTarget.x;
+            this.salvoY = this.salvoTarget.y - 6;
         }
 
         const aimX = this.salvoX + (Math.random() - 0.5) * HELI_ROCKET_SPREAD;
-        const aimY = world.laneLevel(this.salvoLane) - 6;
+        const aimY = this.salvoY;
         const startY = this.y + 10;
         const angle = Math.atan2(aimY - startY, aimX - this.x);
 
