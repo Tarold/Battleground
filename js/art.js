@@ -21,7 +21,7 @@ const Art = {
             columns: 9,
             layers: [
                 { text: '(‾\\', column: 0, row: 0 },
-                { text: '-\u0305' + '=\u0305'.repeat(2) + ' \u0305'.repeat(3) + '_)', column: 1, row: 1 },
+                { text: '-\u0305' + '=\u0305'.repeat(2) + ' \u0305'.repeat(3) + '_>', column: 1, row: 1 },
                 { text: '\\_/', column: 4, row: 2 }
             ],
             props: [{ column: 7, rows: [2] }]
