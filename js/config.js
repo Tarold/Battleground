@@ -60,10 +60,10 @@ const LANE_SCALES = [0.78, 0.9, 1];
 // Параметри наземних юнітів, індекс = тип юніта.
 // killValue = скільки вбивств зараховується тому, хто знищив цього юніта (legend.killValue — якщо він легенда).
 // legend: kills = скільки вбивств до статусу легенди, health = HP легенди,
-// решта полів — перки (shots, artilleryRockets = залп ракет, burst = серія пострілів по черзі, missiles, grenades, rockets, regen = HP/с, instantLock = без відліку захоплення). Без health легенда не отримує бонусу HP.
+// решта полів — перки (shots, artilleryRockets = залп ракет, burst = серія пострілів по черзі, missiles, rpg, rockets, regen = HP/с, instantLock = без відліку захоплення). Без health легенда не отримує бонусу HP.
 const UNIT_STATS = [
     { name: 'INFANTRY', health: 2, speed: 30, range: 145, reload: 0.8,  damage: 1, killValue: 0.5,
-        legend: { kills: 2, health: 5, grenades: true,killValue: 0.5 } },
+        legend: { kills: 2, health: 5, rpg: true, killValue: 0.5 } },
     { name: 'TANK', health: 9, speed: 22, range: 245, reload: 1.65, damage: 3, killValue: 1,
         legend: { kills: 3, health: 16, burst: 2 } },
     { name: 'ANTI-AIR', health: 4, speed: 25, range: 430, reload: 0.5,  damage: 2, killValue: 1,
@@ -203,11 +203,21 @@ const LEGEND_SLOWMO_TIME = 0.5;
 const LEGEND_SLOWMO_SCALE = 0.25;
 const LEGEND_BANNER_LIFE = 2.4;
 
-// Протитанкові гранати легендарної піхоти.
-const GRENADE_RANGE = 190;
-const GRENADE_RELOAD = 3.5;
-const GRENADE_DAMAGE = 5;
-const GRENADE_RADIUS = 38;
+// Граната піхоти (єдиний вид для всієї піхоти).
+const GRENADE_RANGE = 150;
+const GRENADE_RELOAD = 4.5;
+const GRENADE_DAMAGE = 2;
+const GRENADE_RADIUS = 30;
+
+// РПГ легендарної піхоти: швидка пряма ракета по найближчому наземному ворогу.
+const RPG_RANGE = 230;
+const RPG_RELOAD = 4;
+const RPG_SPEED = 320;
+const RPG_DAMAGE = 5;
+const RPG_RADIUS = 38;
+// Піхотинець встає за RPG_STAND_TIME с до пострілу і стоїть RPG_STAND_HOLD с після нього.
+const RPG_STAND_TIME = 0.7;
+const RPG_STAND_HOLD = 0.6;
 
 // Багатоствольна стрільба: кутовий розкид стволів і розкид залпу артилерії.
 const MULTISHOT_ANGLE = 0.04;

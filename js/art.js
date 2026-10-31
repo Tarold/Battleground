@@ -95,6 +95,31 @@ const Art = {
 
         context.fillText(head, 0, -5);
         context.fillText(step ? '/\\' : '|\\', 0, 5);
+
+        // Труба видна лише коли піхотинець стоїть і цілиться (за спиною — не малюємо).
+        if (unit.legendary && unit.rpgStance > 0) {
+            this.drawRpgTube(direction, -6, 0);
+        }
+    },
+
+    // Труба РПГ у руках: товста лінія з бойовою частиною спереду, tilt — нахил від горизонту вгору (0 = паралельно землі).
+    drawRpgTube(direction, y, tilt) {
+        const angle = -tilt;
+        const length = 20;
+        const backX = -direction * 7;
+        const frontX = backX + direction * Math.cos(angle) * length;
+        const frontY = y + Math.sin(angle) * length;
+
+        context.lineWidth = 3;
+        context.beginPath();
+        context.moveTo(backX, y);
+        context.lineTo(frontX, frontY);
+        context.stroke();
+
+        // Бойова частина на передньому кінці.
+        context.beginPath();
+        context.arc(frontX, frontY, 2.5, 0, Math.PI * 2);
+        context.fill();
     },
 
     // У русі ствол опущений у похідне положення.

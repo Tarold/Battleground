@@ -11,6 +11,8 @@ class GroundUnit {
         this.health = 1;
         this.reload = 0;
         this.specialReload = 0;
+        this.rpgReload = 0;
+        this.rpgStance = 0;
         this.missilesLeft = 0;
         this.missileTimer = 0;
         this.burstLeft = 0;
@@ -96,6 +98,8 @@ class GroundUnit {
         this.health = this.stats.health;
         this.reload = 0.3 + Math.random();
         this.specialReload = 2 + Math.random() * 3;
+        this.rpgReload = 1 + Math.random() * 2;
+        this.rpgStance = 0;
         this.missilesLeft = 0;
         this.missileTimer = 0;
         this.burstLeft = 0;
@@ -150,6 +154,7 @@ class GroundUnit {
         this.y = world.laneLevel(this.lane);
         this.reload -= deltaTime;
         this.specialReload -= deltaTime;
+        this.rpgReload -= deltaTime;
         this.moving = false;
 
         if (this.type === INFANTRY) {
@@ -160,8 +165,12 @@ class GroundUnit {
             this.tryLaunchMissile(deltaTime);
         }
 
-        if (this.perk?.grenades) {
+        if (this.type === INFANTRY) {
             this.tryThrowGrenade();
+        }
+
+        if (this.perk?.rpg) {
+            this.tryFireRpg();
         }
 
         if (this.salvoLeft > 0) {
@@ -235,7 +244,9 @@ class GroundUnit {
             this.proneTimer = Math.max(0, this.proneTimer - deltaTime);
         }
 
-        this.prone = this.proneTimer > 0;
+        // Для пострілу з РПГ піхотинець встає в повний зріст.
+        this.rpgStance = Math.max(0, this.rpgStance - deltaTime);
+        this.prone = this.proneTimer > 0 && this.rpgStance === 0;
     }
 
     // Літаки ігноруються: лягають лише від наземних ворогів.
@@ -244,6 +255,11 @@ class GroundUnit {
     }
 
     advance(deltaTime) {
+        // Під час прицілювання з РПГ піхотинець стоїть на місці.
+        if (this.rpgStance > 0) {
+            return;
+        }
+
         const crawl = this.prone ? PRONE_SPEED_FACTOR : 1;
 
         Movement.advanceGroundUnit(this, deltaTime * crawl);
@@ -457,7 +473,47 @@ class GroundUnit {
         spawnSmoke(muzzleX - direction * 12, muzzleY + 3, -direction * (45 + Math.random() * 30), -10 - Math.random() * 15, true, 0.75);
     }
 
-    // Граната легендарної піхоти: навісом по найближчому наземному ворогу (техніка чи піхота).
+    // РПГ легендарної піхоти: пряма ракета по найближчому наземному ворогу.
+    tryFireRpg() {
+        const target = this.findGroundTarget(RPG_RANGE);
+
+        if (!target) {
+            return;
+        }
+
+        // Піхотинець встає заздалегідь і лишається стояти ще мить після пострілу.
+        if (this.rpgReload <= RPG_STAND_TIME) {
+            this.rpgStance = RPG_STAND_HOLD;
+        }
+
+        if (this.rpgReload > 0 || this.prone) {
+            return;
+        }
+
+        const muzzleY = this.y - 10;
+        const angle = Math.atan2(target.y - 7 - muzzleY, target.x - this.x);
+
+        this.rpgReload = RPG_RELOAD + Math.random();
+
+        Projectile.fire({
+            x: this.x,
+            y: muzzleY,
+            velocityX: Math.cos(angle) * RPG_SPEED,
+            velocityY: Math.sin(angle) * RPG_SPEED,
+            team: this.team,
+            owner: this,
+            damage: RPG_DAMAGE,
+            heavy: true,
+            rocket: true,
+            explosionRadius: RPG_RADIUS,
+            targetLane: target.lane,
+            life: 2
+        });
+
+        spawnSmoke(this.x, muzzleY, -Math.cos(angle) * 30, -10, true, 0.5);
+    }
+
+    // Граната піхоти: навісом по найближчому наземному ворогу (техніка чи піхота).
     tryThrowGrenade() {
         if (this.specialReload > 0) {
             return;

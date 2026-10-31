@@ -17,7 +17,7 @@ Combat: entity picks target → `Projectile.fire({...})` → `update` detects hi
 
 ## Legends
 `kills` → `addKill()` → `becomeLegend()` (in `GroundUnit` and `Plane`). The killer is credited via `Projectile.owner` → `takeDamage(amount, attacker)`; area damage passes `owner` through `damageArea`/`damagePlanesArea`.
-Per-type thresholds, legend HP and perks live in `UNIT_STATS[type].legend` / `PLANE_STATS[kind].legend` (`shots`, `missiles`, `grenades`, `rockets`, `nuke`); entities read them through the `perk` getter (null if not legendary).
+Per-type thresholds, legend HP and perks live in `UNIT_STATS[type].legend` / `PLANE_STATS[kind].legend` (`shots`, `missiles`, `rpg`, `rockets`, `nuke`); entities read them through the `perk` getter (null if not legendary).
 Only bombers can become legends among planes (fighter has no `legend`); killing a bomber counts `BOMBER_KILL_VALUE` (2) kills. Kill value (what a victim is worth to its killer): `killValue` in `UNIT_STATS` (infantry 0.5, legend infantry 0.5, others 1), bomber 2 (`BOMBER_KILL_VALUE`), other planes 1.
 Key `1` toggles the top-score panel (`battle.showScores`, `battle.topScores(team)` → `Art.drawScores`): best kills per type vs. kills needed for legend.
 Base AA and base fighter have only guns; AA missiles and fighter rockets are legend-only (`perk.missiles` / `perk.rockets`). Plane legends reset on death/respawn. Legend `health` is optional (bomber gets +2, and `regen` heals it up to that legend HP while flying). AA prefers bombers (`findAirTarget`), fires its missile salvo one by one; homing rockets retarget in a cone ahead when they miss (`Projectile.retargetRocket`).
