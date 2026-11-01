@@ -24,7 +24,7 @@ const Art = {
                 { text: '-\u0305' + '=\u0305'.repeat(2) + ' \u0305'.repeat(3) + '_>', column: 1, row: 1 },
                 { text: '\\_/', column: 4, row: 2 }
             ],
-            props: [{ column: 7, rows: [2] }]
+            props: [{ column: 6.4, rows: [2] }]
         }
     },
 
