@@ -35,7 +35,7 @@ const Art = {
     ],
 
     VEHICLE_SPRITES: {
-        [TANK]: { top: '[=O=]', topY: -3, bottom: 'o===o' },
+        [TANK]: { turret: '<0>', turretY: -10, top: '=====', topY: -3, bottom: '---', bottomY: 4, belly: 'o¯¯¯o', bellyY: 0 },
         [ANTIAIRCRAFT]: { top: '[AA]', topY: -4, bottom: 'o===o' },
         [ARTILLERY]: { top: '[##]', topY: -3, bottom: 'O===O' }
     },
@@ -168,21 +168,33 @@ const Art = {
         const sprite = this.VEHICLE_SPRITES[unit.type];
 
         context.font = 'bold 14px monospace';
+
+        if (sprite.turret) {
+            context.fillText(sprite.turret, 0, sprite.turretY);
+        }
+
         context.fillText(sprite.top, 0, sprite.topY);
-        context.fillText(sprite.bottom, 0, 5);
+        context.fillText(sprite.bottom, 0, sprite.bottomY === undefined ? 5 : sprite.bottomY);
+
+        // Нижній ряд гусениць: дефіси під підкресленням.
+        if (sprite.belly) {
+            context.fillText(sprite.belly, 0, sprite.bellyY);
+        }
 
         const barrelAngle = this.barrelAngle(unit, direction);
         const barrelLength = unit.type === ARTILLERY ? 29 : 22;
         const barrelX = Math.cos(barrelAngle) * barrelLength;
-        const barrelY = -12 + Math.sin(barrelAngle) * barrelLength;
+        // Дуло танка піднято над базовою точкою інших машин.
+        const barrelBaseY = unit.type === TANK ? -16 : -12;
+        const barrelY = barrelBaseY + Math.sin(barrelAngle) * barrelLength;
 
         context.lineWidth = unit.type === ARTILLERY ? 3 : 2;
         context.beginPath();
-        context.moveTo(0, -12);
+        context.moveTo(0, barrelBaseY);
         context.lineTo(barrelX, barrelY);
 
         if (unit.type === TANK && unit.legendary) {
-            context.moveTo(0, -7);
+            context.moveTo(0, barrelBaseY + 5);
             context.lineTo(barrelX, barrelY + 5);
         }
 
