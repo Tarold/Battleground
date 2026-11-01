@@ -19,6 +19,7 @@ const Art = {
         },
         bomber: {
             columns: 9,
+            pivot: 5.5,
             layers: [
                 { text: '(‾\\', column: 0, row: 0 },
                 { text: '-\u0305' + '=\u0305'.repeat(2) + ' \u0305'.repeat(3) + '_>', column: 1, row: 1 },
@@ -230,7 +231,7 @@ const Art = {
         context.font = `bold ${PLANE_FONT_SIZE}px monospace`;
 
         const charWidth = context.measureText('M').width;
-        const left = -sprite.columns * charWidth / 2;
+        const left = -(sprite.pivot ?? sprite.columns / 2) * charWidth;
         const propFrame = this.PROP_FRAMES[plane.state === PLANE_FALLING ? 0 : Math.floor(time * PLANE_PROP_FPS) % this.PROP_FRAMES.length];
 
         for (const layer of sprite.layers) {
@@ -241,6 +242,14 @@ const Art = {
             for (const row of prop.rows) {
                 context.fillText(propFrame[row], left + prop.column * charWidth, (row - 1) * PLANE_LINE_HEIGHT);
             }
+        }
+
+        if (DEBUG_PLANE_PIVOT) {
+            context.shadowBlur = 0;
+            context.fillStyle = '#ff2222';
+            context.beginPath();
+            context.arc(0, 0, 2, 0, Math.PI * 2);
+            context.fill();
         }
 
         context.restore();

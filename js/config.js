@@ -244,6 +244,7 @@ const PLANE_FALL_GRAVITY = 240;
 const PLANE_FONT_SIZE = 14;
 const PLANE_LINE_HEIGHT = 6;
 const PLANE_PROP_FPS = 24;
+const DEBUG_PLANE_PIVOT = false;   // показувати точку нахилу літака (червона крапка)
 
 // Ракета, що промахнулась (ціль збита або лишилась позаду), шукає нову ціль у конусі попереду.
 const ROCKET_MISS_GRACE = 0.8;
