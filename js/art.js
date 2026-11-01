@@ -11,9 +11,9 @@ const Art = {
         fighter: {
             columns: 6,
             layers: [
-                { text: '(\\_', column: 0, row: 0 },
-                { text: ' ===]', column: 0, row: 1 },
-                { text: '\\/', column: 2.5, row: 2 }
+                { text: '(\\--', column: 0, row: 0 },
+                { text: '=_=>', column: 1, row: 1 },
+                { text: '̷ ̷', column: 1.8, row: 1 }
             ],
             props: []
         },
