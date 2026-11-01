@@ -15,7 +15,7 @@ const Art = {
                 { text: ' ===]', column: 0, row: 1 },
                 { text: '\\/', column: 2.5, row: 2 }
             ],
-            props: [{ column: 5, rows: [1] }]
+            props: []
         },
         bomber: {
             columns: 9,
