@@ -38,7 +38,8 @@ const Art = {
     VEHICLE_SPRITES: {
         [TANK]: { turret: '<0>', turretY: -10, top: '=====', topY: -3, bottom: '---', bottomY: 4, belly: 'o¯¯¯o', bellyY: 0 },
         [ANTIAIRCRAFT]: { top: '[AA]', topY: -4, bottom: 'o===o' },
-        [ARTILLERY]: { top: '[##]', topY: -3, bottom: 'O===O' }
+        // САУ: башта ззаду; у легендарної РСЗВ замість башти кабіна спереду (X — уперед від центру).
+        [ARTILLERY]: { turret: '[##]', turretX: -6, turretY: -10, cab: '[#]', cabX: 17, cabY: -10, top: '=======', topY: -3, bottom: '(ooooo)' }
     },
 
     // --- Scene -------------------------------------------------------------
@@ -87,12 +88,16 @@ const Art = {
 
         if (unit.type === INFANTRY) {
             this.drawInfantry(unit, direction, time);
+        } else if (unit.type === ARTILLERY) {
+            this.drawArtillery(unit, direction);
         } else {
             this.drawVehicle(unit, direction);
         }
 
         if (unit.legendary) {
-            this.drawLegendStar(0, unit.type === INFANTRY ? -20 : -30, time);
+            // Над РСЗВ зірка вище, щоб не налазила на піднятий пакет.
+            const starY = unit.type === INFANTRY ? -20 : (unit.type === ARTILLERY ? -42 * ARTILLERY_SCALE : -30);
+            this.drawLegendStar(0, starY, time);
         }
 
         context.restore();
@@ -159,7 +164,9 @@ const Art = {
         }
 
         if (unit.type === ARTILLERY) {
-            return direction === 1 ? -0.45 : -Math.PI + 0.45;
+            const stowed = unit.perk?.artilleryRockets ? ROCKET_PACK_STOWED_ANGLE : ARTILLERY_STOWED_ANGLE;
+
+            return direction === 1 ? -stowed : -Math.PI + stowed;
         }
 
         return direction === 1 ? 0 : Math.PI;
@@ -183,13 +190,13 @@ const Art = {
         }
 
         const barrelAngle = this.barrelAngle(unit, direction);
-        const barrelLength = unit.type === ARTILLERY ? 29 : 22;
+        const barrelLength = 22;
         const barrelX = Math.cos(barrelAngle) * barrelLength;
         // Дуло танка піднято над базовою точкою інших машин.
         const barrelBaseY = unit.type === TANK ? -16 : -12;
         const barrelY = barrelBaseY + Math.sin(barrelAngle) * barrelLength;
 
-        context.lineWidth = unit.type === ARTILLERY ? 3 : 2;
+        context.lineWidth = 2;
         context.beginPath();
         context.moveTo(0, barrelBaseY);
         context.lineTo(barrelX, barrelY);
@@ -205,6 +212,88 @@ const Art = {
         }
 
         context.stroke();
+    },
+
+    // САУ (гармата з дульним гальмом) або легендарна РСЗВ (пакет ракет) на спільному шасі.
+    drawArtillery(unit, direction) {
+        const sprite = this.VEHICLE_SPRITES[ARTILLERY];
+        const angle = this.barrelAngle(unit, direction);
+
+        context.save();
+        context.scale(ARTILLERY_SCALE, ARTILLERY_SCALE);
+        context.font = 'bold 14px monospace';
+        context.fillText(sprite.bottom, 0, 5);
+        context.fillText(sprite.top, 0, sprite.topY);
+
+        if (unit.perk?.artilleryRockets) {
+            context.fillText(sprite.cab, direction * sprite.cabX, sprite.cabY);
+            this.drawRocketPack(direction, angle);
+        } else {
+            context.fillText(sprite.turret, direction * sprite.turretX, sprite.turretY);
+            this.drawHowitzerBarrel(direction * ARTILLERY_BARREL_X, ARTILLERY_BARREL_Y, angle, ARTILLERY_BARREL_LENGTH);
+        }
+
+        context.restore();
+    },
+
+    // Товстий ствол із дульним гальмом (поперечна риска біля кінця).
+    drawHowitzerBarrel(baseX, baseY, angle, length) {
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        const endX = baseX + cos * length;
+        const endY = baseY + sin * length;
+        const brakeX = endX - cos * 3;
+        const brakeY = endY - sin * 3;
+
+        context.lineWidth = 3;
+        context.beginPath();
+        context.moveTo(baseX, baseY);
+        context.lineTo(endX, endY);
+        context.stroke();
+
+        context.lineWidth = 4;
+        context.beginPath();
+        context.moveTo(brakeX - sin * 3, brakeY + cos * 3);
+        context.lineTo(brakeX + sin * 3, brakeY - cos * 3);
+        context.stroke();
+    },
+
+    // Пакет РСЗВ: коробка з двома пунктирними напрямними на гідравлічній опорі.
+    drawRocketPack(direction, angle) {
+        // Кут підйому від горизонту, однаковий для обох команд.
+        const elevation = Math.atan2(-Math.sin(angle), Math.cos(angle) * direction);
+        const pivotX = direction * ROCKET_PACK_X;
+        const top = 2 - ROCKET_PACK_HEIGHT;
+        const middle = 2 - ROCKET_PACK_HEIGHT / 2;
+
+        // Опора від корпусу до середини пакета.
+        context.lineWidth = 2;
+        context.beginPath();
+        context.moveTo(-direction * 2, -9);
+        context.lineTo(
+            pivotX + direction * Math.cos(elevation) * ROCKET_PACK_LENGTH / 2,
+            ROCKET_PACK_Y - Math.sin(elevation) * ROCKET_PACK_LENGTH / 2
+        );
+        context.stroke();
+
+        context.save();
+        context.translate(pivotX, ROCKET_PACK_Y);
+        context.scale(direction, 1);
+        context.rotate(-elevation);
+
+        context.lineWidth = 1.5;
+        context.strokeRect(-2, top, ROCKET_PACK_LENGTH, ROCKET_PACK_HEIGHT);
+
+        context.lineWidth = 1;
+        context.setLineDash([3, 2]);
+        context.beginPath();
+        context.moveTo(1, middle - 1.5);
+        context.lineTo(ROCKET_PACK_LENGTH - 5, middle - 1.5);
+        context.moveTo(1, middle + 1.5);
+        context.lineTo(ROCKET_PACK_LENGTH - 5, middle + 1.5);
+        context.stroke();
+
+        context.restore();
     },
 
     // --- Planes ------------------------------------------------------------

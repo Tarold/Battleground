@@ -232,7 +232,25 @@ class GroundUnit {
             return;
         }
 
-        this.aimAngle = Math.atan2(target.y - this.y, target.x - this.x);
+        if (this.perk?.artilleryRockets) {
+            // Пакет РСЗВ між залпами плавно піднімається на кут, під яким полетять ракети.
+            const muzzle = this.rocketPackPoint(ROCKET_PACK_LENGTH - 2);
+            const shot = Movement.rocketSalvoShot(target.x - muzzle.x, target.y - muzzle.y);
+            const desiredAngle = Math.atan2(shot.velocityY, shot.velocityX);
+
+            this.aimAngle = Movement.turnToward(this.aimAngle, desiredAngle, ARTILLERY_TURRET_SPEED * deltaTime);
+
+            const error = Math.abs(Math.atan2(
+                Math.sin(desiredAngle - this.aimAngle),
+                Math.cos(desiredAngle - this.aimAngle)
+            ));
+
+            if (error > ROCKET_PACK_TOLERANCE) {
+                return;
+            }
+        } else {
+            this.aimAngle = Math.atan2(target.y - this.y, target.x - this.x);
+        }
 
         if (this.reload <= 0) {
             this.fire(target, airborne);
@@ -397,7 +415,15 @@ class GroundUnit {
             }
         }
 
-        const muzzleX = this.x + Math.cos(this.aimAngle) * 19;
+        // Снаряд САУ вилітає з кінця ствола, як його малює Art.drawArtillery.
+        const howitzer = this.type === ARTILLERY;
+        const direction = this.team === 0 ? 1 : -1;
+        const muzzleX = howitzer
+            ? this.x + ARTILLERY_SCALE * (direction * ARTILLERY_BARREL_X + Math.cos(this.aimAngle) * ARTILLERY_BARREL_LENGTH)
+            : this.x + Math.cos(this.aimAngle) * 19;
+        const shellY = howitzer
+            ? this.y + ARTILLERY_SCALE * (ARTILLERY_BARREL_Y + Math.sin(this.aimAngle) * ARTILLERY_BARREL_LENGTH)
+            : muzzleY;
         const heavy = this.type !== INFANTRY;
         const shots = this.perk?.shots ?? 1;
 
@@ -407,7 +433,7 @@ class GroundUnit {
 
             Projectile.fire({
                 x: muzzleX,
-                y: muzzleY + (this.type === ARTILLERY ? 0 : offset * 5),
+                y: shellY + (howitzer ? 0 : offset * 5),
                 velocityX: shot.velocityX,
                 velocityY: shot.velocityY,
                 team: this.team,
@@ -421,7 +447,7 @@ class GroundUnit {
             });
         }
 
-        spawnSmoke(muzzleX, muzzleY, Math.cos(this.aimAngle) * 25, -15, heavy, 0.35);
+        spawnSmoke(muzzleX, shellY, Math.cos(this.aimAngle) * 25, -15, heavy, 0.35);
     }
 
     // Легендарна артилерія (РСЗВ) фіксує точку цілі й стоїть на місці, поки не випустить весь залп.
@@ -446,8 +472,10 @@ class GroundUnit {
         this.salvoLeft--;
 
         const direction = this.team === 0 ? 1 : -1;
-        const muzzleX = this.x + direction * 8;
-        const muzzleY = this.y - 16;
+        const muzzle = this.rocketPackPoint(ROCKET_PACK_LENGTH - 2);
+        const exhaust = this.rocketPackPoint(-2);
+        const muzzleX = muzzle.x;
+        const muzzleY = muzzle.y;
         const spread = (Math.random() - 0.5) * ARTILLERY_ROCKET_SPREAD;
         const shot = Movement.rocketSalvoShot(
             this.salvoX + spread - muzzleX,
@@ -473,7 +501,19 @@ class GroundUnit {
         });
 
         // Струмінь вогню та диму позаду пускової.
-        spawnSmoke(muzzleX - direction * 12, muzzleY + 3, -direction * (45 + Math.random() * 30), -10 - Math.random() * 15, true, 0.75);
+        spawnSmoke(exhaust.x, exhaust.y, -direction * (45 + Math.random() * 30), -10 - Math.random() * 15, true, 0.75);
+    }
+
+    // Точка на осі пакета РСЗВ (along — відстань від осі вздовж пакета), так само як його малює Art.drawRocketPack.
+    rocketPackPoint(along) {
+        const direction = this.team === 0 ? 1 : -1;
+        const elevation = Math.atan2(-Math.sin(this.aimAngle), Math.cos(this.aimAngle) * direction);
+        const middle = 2 - ROCKET_PACK_HEIGHT / 2;
+
+        return {
+            x: this.x + ARTILLERY_SCALE * direction * (ROCKET_PACK_X + along * Math.cos(elevation) + middle * Math.sin(elevation)),
+            y: this.y + ARTILLERY_SCALE * (ROCKET_PACK_Y - along * Math.sin(elevation) + middle * Math.cos(elevation))
+        };
     }
 
     // РПГ легендарної піхоти: пряма ракета по найближчому наземному ворогу.

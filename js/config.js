@@ -119,6 +119,24 @@ const ARTILLERY_TURRET_SPEED = 0.9;
 const ARTILLERY_TURRET_TOLERANCE = 0.06;
 const ARTILLERY_EXPLOSION_RADIUS = 72;
 
+// Масштаб усього спрайта артилерії (САУ і РСЗВ) відносно інших машин; точки пострілу масштабуються так само.
+const ARTILLERY_SCALE = 0.8;
+
+// Вигляд САУ: вісь ствола (зсув уперед від центру, висота), довжина, підйом ствола в русі (рад).
+const ARTILLERY_BARREL_X = 8;
+const ARTILLERY_BARREL_Y = -14;
+const ARTILLERY_BARREL_LENGTH = 26;
+const ARTILLERY_STOWED_ANGLE = 0.12;
+
+// Вигляд легендарної РСЗВ: вісь пакета (від'ємний X — позаду центру), розміри, підйом у русі.
+const ROCKET_PACK_X = -12;
+const ROCKET_PACK_Y = -12;
+const ROCKET_PACK_LENGTH = 26;
+const ROCKET_PACK_HEIGHT = 9;
+const ROCKET_PACK_STOWED_ANGLE = 0.08;
+// Допуск наведення пакета перед залпом (ширший за гармату: кут ракет трохи гуляє).
+const ROCKET_PACK_TOLERANCE = 0.15;
+
 // Види літальних апаратів у порядку пулу (battle.planes) і таблиці рахунку.
 const PLANE_KINDS = ['fighter', 'bomber', 'heli'];
 
