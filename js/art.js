@@ -190,31 +190,34 @@ const Art = {
     // Зенітка-пікап зі спареними стволами; легенда тягне причіп з контейнерами ракет.
     drawAntiAircraft(unit, direction) {
         const sprite = this.VEHICLE_SPRITES[ANTIAIRCRAFT];
-        const angle = this.barrelAngle(unit, direction);
-        const cos = Math.cos(angle);
-        const sin = Math.sin(angle);
-        const baseX = direction * AA_GUN_X;
 
         context.fillText(this.facingText(sprite.wheels, direction), 0, 5);
         context.fillText(this.facingText(sprite.body, direction), 0, -3);
         context.fillText(sprite.turret, direction * sprite.turretX, -11);
+        this.drawAntiAircraftGuns(direction * AA_GUN_X, AA_GUN_Y, this.barrelAngle(unit, direction), AA_GUN_GAP);
+
+        if (unit.perk?.missiles) {
+            this.drawMissileTrailer(sprite, direction);
+        }
+    },
+
+    // Спарені стволи обертаються по колу навколо центру башти: від центру прозорий зазор gap, далі стволи.
+    drawAntiAircraftGuns(centerX, centerY, angle, gap) {
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
 
         context.lineWidth = 1.5;
         context.beginPath();
 
         for (const offset of [-1.8, 1.8]) {
-            const startX = baseX - sin * offset;
-            const startY = AA_GUN_Y + cos * offset;
+            const startX = centerX + cos * gap - sin * offset;
+            const startY = centerY + sin * gap + cos * offset;
 
             context.moveTo(startX, startY);
             context.lineTo(startX + cos * AA_GUN_LENGTH, startY + sin * AA_GUN_LENGTH);
         }
 
         context.stroke();
-
-        if (unit.perk?.missiles) {
-            this.drawMissileTrailer(sprite, direction);
-        }
     },
 
     // Причіп на дишлі з двома контейнерами, піднятими під кутом пуску ракет.

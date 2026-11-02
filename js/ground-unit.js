@@ -422,7 +422,7 @@ class GroundUnit {
             : this.type === TANK
                 ? { x: TANK_BARREL_X, y: TANK_BARREL_Y, length: TANK_BARREL_LENGTH }
                 : this.type === ANTIAIRCRAFT
-                    ? { x: AA_GUN_X, y: AA_GUN_Y, length: AA_GUN_LENGTH }
+                    ? { x: AA_GUN_X, y: AA_GUN_Y, length: AA_GUN_GAP + AA_GUN_LENGTH }
                     : null;
         const direction = this.team === 0 ? 1 : -1;
         const muzzleX = barrel
