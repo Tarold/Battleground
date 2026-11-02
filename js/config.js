@@ -240,8 +240,11 @@ const AA_MISSILE_DAMAGE = 8.8;
 const AA_MISSILE_BLAST_RADIUS = 75;
 const PLANE_FALL_GRAVITY = 240;
 
+// Єдиний шрифт для всіх ASCII-спрайтів (юніти, літаки, снаряди, дим), щоб дизайн був однорідним.
+const SPRITE_FONT_SIZE = 14;
+const SPRITE_FONT = `bold ${SPRITE_FONT_SIZE}px monospace`;
+
 // Малювання літака: багаторядковий ASCII-спрайт, гвинт крутиться з частотою PLANE_PROP_FPS.
-const PLANE_FONT_SIZE = 14;
 const PLANE_LINE_HEIGHT = 6;
 const PLANE_PROP_FPS = 24;
 const DEBUG_PLANE_PIVOT = false;   // показувати точку нахилу літака (червона крапка)

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<title>Font compare</title>
+<style>
+body { margin: 0; background: #0c0c10; color: #ccc; font: 14px monospace; }
+canvas { display: block; }
+.info { padding: 8px 20px 30px; max-width: 1200px; }
+h2 { font-size: 15px; color: #eee; margin: 18px 0 8px; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border-bottom: 1px solid #2a2f2a; padding: 4px 8px; text-align: left; white-space: nowrap; }
+th { color: #888; font-weight: normal; }
+td.sample { font-weight: bold; color: #66c2ff; }
+.off { color: #ff7766; }
+.ok { color: #7c7; }
+.dim { color: #777; }
+</style>
+</head>
+<body>
+<canvas id="battlefield"></canvas>
+<div class="info">
+    <h2>Шрифти спрайтів (SPRITE_FONT у config.js)</h2>
+    <table id="sprites"></table>
+    <h2>UI-текст (не спрайти)</h2>
+    <table id="ui"></table>
+    <p class="dim">Базовий розмір — <span class="ok">SPRITE_FONT_SIZE bold</span>. Червоним — відхилення.
+    Ефективний розмір = шрифт × LANE_SCALES (лише наземні юніти й зірка над ними).</p>
+</div>
+<script src="js/config.js"></script>
+<script src="js/movement.js"></script>
+<script src="js/art.js"></script>
+<script>
+'use strict';
+
+// Перевірка однорідності шрифтів: усі спрайти, як їх малює art.js, поруч, з розмірами шрифту.
+canvas.width = 1200;
+canvas.height = 1040;
+
+const BASE_SIZE = SPRITE_FONT_SIZE;
+const CELL = 80;
+
+function label(text, x, y, color = '#777', size = 11) {
+    context.fillStyle = color;
+    context.font = `${size}px monospace`;
+    context.textAlign = 'center';
+    context.textBaseline = 'alphabetic';
+    context.fillText(text, x, y);
+}
+
+function heading(text, y) {
+    context.fillStyle = '#eee';
+    context.font = 'bold 14px monospace';
+    context.textAlign = 'left';
+    context.fillText(text, 20, y);
+    context.strokeStyle = '#3d473d';
+    context.lineWidth = 1;
+    context.beginPath();
+    context.moveTo(20, y + 8);
+    context.lineTo(canvas.width - 20, y + 8);
+    context.stroke();
+}
+
+function sizeColor(size) {
+    return Math.abs(size - BASE_SIZE) < 0.05 ? '#7c7' : '#ff7766';
+}
+
+function ground(type, extra = {}) {
+    return (x, y) => Art.drawGroundUnit(Object.assign({
+        x, y, team: 0, lane: 2, type, legendary: false, moving: false, prone: false,
+        animationPhase: 0, rpgStance: 0, aimAngle: type === TANK ? -0.15 : -0.7
+    }, extra), 0);
+}
+
+function plane(bomber) {
+    return (x, y) => Art.drawPlane({ x, y, angle: 0, bomber, team: 0, state: PLANE_FLYING, legendary: false }, 0);
+}
+
+function projectile(extra) {
+    return (x, y) => Art.drawProjectile(Object.assign({ x: x - 6, y, angle: 0, team: 0 }, extra));
+}
+
+function smoke(x, y) {
+    [0, 0.25, 0.5, 0.75, 0.99].forEach((progress, index) => {
+        Art.drawSmoke({ x: x - 22 + index * 10, y, life: 1 - progress, maximumLife: 1, fire: progress < 0.45 });
+    });
+}
+
+// Опис: назва, функція малювання, шрифт, масштаб доріжки, рядок у art.js.
+const FONT = `bold ${SPRITE_FONT_SIZE}px`;
+
+const SPRITES = [
+    { name: 'піхота', draw: ground(INFANTRY), font: FONT, size: SPRITE_FONT_SIZE, lanes: true, source: 'art.js:86', sample: 'o- |\\' },
+    { name: 'танк', draw: ground(TANK), font: FONT, size: SPRITE_FONT_SIZE, lanes: true, source: 'art.js:86', sample: '<0> =====' },
+    { name: 'зенітка', draw: ground(ANTIAIRCRAFT), font: FONT, size: SPRITE_FONT_SIZE, lanes: true, source: 'art.js:86', sample: '[AA] o===o' },
+    { name: 'САУ', draw: ground(ARTILLERY), font: FONT, size: SPRITE_FONT_SIZE, lanes: true, source: 'art.js:86', sample: '[##] O===O' },
+    { name: 'зірка', draw: (x, y) => { context.textAlign = 'center'; Art.drawLegendStar(x, y, Math.PI / 12); }, font: FONT, size: SPRITE_FONT_SIZE, lanes: true, source: 'art.js:105', sample: '★', note: 'над наземними × доріжка; над літаком/гелі — без масштабу' },
+    { name: 'винищувач', draw: plane(false), font: FONT, size: SPRITE_FONT_SIZE, source: 'art.js:229', sample: '(\\-- =_=>' },
+    { name: 'бомбер', draw: plane(true), font: FONT, size: SPRITE_FONT_SIZE, source: 'art.js:229', sample: '(‾\\ \\_/' },
+    { name: 'гелікоптер', draw: (x, y) => Art.drawHelicopter({ x, y, tilt: 0, facing: 1, team: 0, state: PLANE_FLYING, legendary: false, muzzle: { x: x + 8, y: y + 9 }, turretAngle: 0.6 }, 0.01), font: FONT, size: SPRITE_FONT_SIZE, source: 'art.js:283', sample: '+=-[O>' },
+    { name: 'куля', draw: projectile({}), font: FONT, size: SPRITE_FONT_SIZE, source: 'art.js:367', sample: '-' },
+    { name: 'важка куля', draw: projectile({ heavy: true }), font: FONT, size: SPRITE_FONT_SIZE, source: 'art.js:367', sample: '•' },
+    { name: 'снаряд', draw: projectile({ shell: true }), font: FONT, size: SPRITE_FONT_SIZE, source: 'art.js:367', sample: '●' },
+    { name: 'бомба', draw: projectile({ bomb: true }), font: FONT, size: SPRITE_FONT_SIZE, source: 'art.js:367', sample: '<●>' },
+    { name: 'ядерка', draw: projectile({ nuke: true }), font: FONT, size: SPRITE_FONT_SIZE, source: 'art.js:367', sample: '<@>' },
+    { name: 'ракета', draw: projectile({ rocket: true }), font: FONT, size: SPRITE_FONT_SIZE, source: 'art.js:367', sample: '=>' },
+    { name: 'вел. ракета', draw: projectile({ rocket: true, big: true }), font: FONT, size: SPRITE_FONT_SIZE, source: 'art.js:367', sample: '=##>' },
+    { name: 'дим', draw: smoke, font: FONT, size: SPRITE_FONT_SIZE, source: 'art.js:446', sample: '@%#*+:.' }
+];
+
+const UI = [
+    { name: 'HQ-підписи', font: 'bold 14px', size: 14, source: 'art.js:57', sample: '[HQ-ALPHA]' },
+    { name: 'табло рахунку', font: 'bold 14px', size: 14, source: 'art.js:394', sample: 'ALPHA — TOP SCORE' },
+    { name: 'режим гравця', font: 'bold 18px', size: 18, source: 'art.js:431', sample: 'PLAYER: FIGHTER' },
+    { name: 'банер легенди', font: 'bold 20px', size: 20, source: 'art.js:379', sample: '★ LEGEND ★' }
+];
+
+function effective(sprite) {
+    return sprite.lanes ? LANE_SCALES.map(scale => sprite.size * scale) : [sprite.size];
+}
+
+context.fillStyle = '#0c0c10';
+context.fillRect(0, 0, canvas.width, canvas.height);
+
+// --- 1. Усе поруч у натуральну величину (доріжка 2, масштаб 1) ---
+heading('1. Поруч, 1:1 (найближча доріжка, LANE_SCALES = 1)', 30);
+
+SPRITES.forEach((sprite, index) => {
+    const x = 20 + CELL / 2 + index * (CELL - 6);
+
+    context.save();
+    sprite.draw(x, 95);
+    context.restore();
+
+    label(sprite.name, x, 140, '#999');
+    label(sprite.font.replace('bold ', '') + (sprite.font.startsWith('bold') ? '' : ' reg'), x, 156, sizeColor(sprite.size));
+});
+
+// --- 2. Однаковий текст різними шрифтами: видно різницю в ширині клітинки ---
+heading('2. Клітинка символу: "M#@" кожним шрифтом (рамка = ширина символу × розмір)', 200);
+
+const distinct = [];
+
+for (const sprite of SPRITES.concat(UI)) {
+    for (const size of effective(sprite)) {
+        const font = `${sprite.font.startsWith('bold') ? 'bold ' : ''}${size.toFixed(1)}px`;
+
+        if (!distinct.some(entry => entry.font === font)) {
+            distinct.push({ font, size, who: [] });
+        }
+
+        distinct.find(entry => entry.font === font).who.push(sprite.name);
+    }
+}
+
+distinct.sort((a, b) => a.size - b.size);
+
+let cursor = 30;
+
+distinct.forEach(entry => {
+    context.font = `${entry.font} monospace`;
+    context.textAlign = 'left';
+    context.textBaseline = 'alphabetic';
+
+    const charWidth = context.measureText('M').width;
+    const top = 260 - entry.size;
+
+    context.strokeStyle = '#333a33';
+    context.lineWidth = 1;
+
+    for (let i = 0; i < 3; i++) {
+        context.strokeRect(cursor + i * charWidth + 0.5, top + 0.5, charWidth, entry.size);
+    }
+
+    context.fillStyle = sizeColor(entry.size);
+    context.fillText('M#@', cursor, 260 - entry.size * 0.2);
+
+    label(entry.font.replace('bold ', ''), cursor + charWidth * 1.5, 280, sizeColor(entry.size));
+    label(entry.font.startsWith('bold') ? 'bold' : 'regular', cursor + charWidth * 1.5, 294, '#666', 10);
+    cursor += charWidth * 3 + 30;
+});
+
+// Базова лінія для всіх зразків.
+context.strokeStyle = '#3d473d';
+context.beginPath();
+context.moveTo(20, 260.5);
+context.lineTo(canvas.width - 20, 260.5);
+context.stroke();
+
+// --- 3. Наземні юніти на трьох доріжках: масштаб змінює ефективний розмір шрифту ---
+heading('3. Доріжки 0 / 1 / 2: шрифт × LANE_SCALES', 340);
+
+[['піхота', INFANTRY], ['танк', TANK], ['зенітка', ANTIAIRCRAFT], ['САУ', ARTILLERY]].forEach(([name, type], group) => {
+    const groupX = 60 + group * 290;
+    const sprite = SPRITES.find(entry => entry.name === name);
+
+    LANE_SCALES.forEach((scale, lane) => {
+        const x = groupX + lane * 80;
+
+        ground(type, { lane, legendary: lane === 2 })(x, 410);
+        label(`доріжка ${lane}`, x, 445, '#999');
+        label(`${(sprite.size * scale).toFixed(1)}px`, x, 460, sizeColor(sprite.size * scale));
+    });
+});
+
+// --- 4. Збільшено ×3: товщина і пропорції гліфів ---
+heading('4. Збільшено ×3', 510);
+
+SPRITES.forEach((sprite, index) => {
+    const column = index % 6;
+    const row = Math.floor(index / 6);
+    const x = 160 + column * 185;
+    const y = 600 + row * 160;
+
+    context.save();
+    context.translate(x, y);
+    context.scale(3, 3);
+    sprite.draw(0, 0);
+    context.restore();
+
+    label(`${sprite.name} · ${sprite.font}`, x, y + 70, sizeColor(sprite.size));
+});
+
+// --- Таблиці під полотном ---
+function fillTable(id, rows, withLanes) {
+    const header = '<tr><th>елемент</th><th>зразок</th><th>шрифт</th>'
+        + (withLanes ? '<th>ефективно (доріжки 0/1/2)</th>' : '')
+        + '<th>Δ від бази</th><th>де</th><th>примітка</th></tr>';
+
+    document.getElementById(id).innerHTML = header + rows.map(row => {
+        const sizes = withLanes ? effective(row).map(size => size.toFixed(1)).join(' / ') : '';
+        const delta = row.size - BASE_SIZE;
+        const notBold = !row.font.startsWith('bold');
+        const cls = delta === 0 && !notBold && !row.lanes ? 'ok' : 'off';
+
+        return `<tr><td>${row.name}</td>`
+            + `<td class="sample" style="font:${row.font} monospace">${row.sample.replace(/</g, '&lt;')}</td>`
+            + `<td class="${cls}">${row.font}</td>`
+            + (withLanes ? `<td class="${row.lanes ? 'off' : 'dim'}">${row.lanes ? sizes : '—'}</td>` : '')
+            + `<td class="${delta === 0 ? 'ok' : 'off'}">${delta > 0 ? '+' : ''}${delta}</td>`
+            + `<td class="dim">${row.source}</td>`
+            + `<td class="dim">${row.note || ''}</td></tr>`;
+    }).join('');
+}
+
+fillTable('sprites', SPRITES, true);
+fillTable('ui', UI, false);
+</script>
+</body>
+</html>

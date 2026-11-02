@@ -83,7 +83,7 @@ const Art = {
         context.fillStyle = TEAM_COLORS[unit.team];
         context.strokeStyle = TEAM_COLORS[unit.team];
         context.textAlign = 'center';
-        context.font = 'bold 13px monospace';
+        context.font = SPRITE_FONT;
 
         if (unit.type === INFANTRY) {
             this.drawInfantry(unit, direction, time);
@@ -102,7 +102,7 @@ const Art = {
     drawLegendStar(x, y, time) {
         context.globalAlpha = 0.7 + Math.sin(time * 6) * 0.3;
         context.fillStyle = LEGEND_COLOR;
-        context.font = 'bold 16px monospace';
+        context.font = SPRITE_FONT;
         context.fillText('★', x, y);
         context.globalAlpha = 1;
     },
@@ -168,8 +168,6 @@ const Art = {
     drawVehicle(unit, direction) {
         const sprite = this.VEHICLE_SPRITES[unit.type];
 
-        context.font = 'bold 14px monospace';
-
         if (sprite.turret) {
             context.fillText(sprite.turret, 0, sprite.turretY);
         }
@@ -228,7 +226,7 @@ const Art = {
         context.fillStyle = plane.state === PLANE_FALLING ? '#ff4422' : TEAM_COLORS[plane.team];
         context.textAlign = 'left';
         context.textBaseline = 'middle';
-        context.font = `bold ${PLANE_FONT_SIZE}px monospace`;
+        context.font = SPRITE_FONT;
 
         const charWidth = context.measureText('M').width;
         const left = -(sprite.pivot ?? sprite.columns / 2) * charWidth;
@@ -282,7 +280,7 @@ const Art = {
         context.fillStyle = color;
         context.strokeStyle = color;
         context.textAlign = 'center';
-        context.font = 'bold 14px monospace';
+        context.font = SPRITE_FONT;
         context.fillText(Math.sin(time * 40) > 0 ? '‾‾‾‾+‾‾‾‾' : '‾‾ + ‾‾', 3, -6);
         context.fillText('+=-[O>', 0, 5);
 
@@ -366,7 +364,7 @@ const Art = {
         context.translate(projectile.x, projectile.y);
         context.rotate(projectile.angle);
         context.fillStyle = this.projectileColor(projectile);
-        context.font = projectile.big ? 'bold 19px monospace' : 'bold 15px monospace';
+        context.font = SPRITE_FONT;
         context.fillText(this.projectileSymbol(projectile), -4, 4);
         context.restore();
     },
@@ -445,7 +443,7 @@ const Art = {
             this.SMOKE_CHARACTERS.length - 1
         );
 
-        context.font = '14px monospace';
+        context.font = SPRITE_FONT;
         context.globalAlpha = smoke.life / smoke.maximumLife * 0.75;
 
         if (smoke.fire && progress < 0.45) {
