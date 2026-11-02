@@ -494,7 +494,7 @@ class GroundUnit {
         }
 
         const muzzleY = this.y - 10;
-        const angle = Math.atan2(target.y - 7 - muzzleY, target.x - this.x);
+        const angle = Math.atan2(Movement.aimPointY(target) - muzzleY, target.x - this.x);
 
         this.rpgReload = RPG_RELOAD + Math.random();
 
@@ -529,7 +529,7 @@ class GroundUnit {
         }
 
         const startY = this.y - 10;
-        const shot = Movement.grenadeShot(target.x - this.x, target.y - 7 - startY);
+        const shot = Movement.grenadeShot(target.x - this.x, Movement.aimPointY(target) - startY);
 
         this.specialReload = GRENADE_RELOAD + Math.random();
 

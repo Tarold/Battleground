@@ -512,7 +512,7 @@ class Plane {
                 continue;
             }
 
-            const { distance, alignment } = Movement.alignment(this, unit.x, unit.y - 7);
+            const { distance, alignment } = Movement.alignment(this, unit.x, Movement.aimPointY(unit));
 
             if (distance <= 1 || distance >= maximumDistance) {
                 continue;
@@ -621,7 +621,7 @@ class Plane {
 
         const isPlane = target.state !== undefined;
         let aimX = target.x;
-        let aimY = isPlane ? target.y : target.y - 7;
+        let aimY = isPlane ? target.y : Movement.aimPointY(target);
 
         if (isPlane) {
             const leadTime = Math.hypot(aimX - this.x, aimY - this.y) / PLANE_GUN_SPEED;
