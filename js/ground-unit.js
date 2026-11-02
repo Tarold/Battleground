@@ -392,7 +392,7 @@ class GroundUnit {
             return;
         }
 
-        const muzzleY = this.y - (this.type === INFANTRY ? (this.prone ? 3 : 7) : 13);
+        const muzzleY = this.y - (this.type === INFANTRY ? (this.prone ? 3 : 7) : this.type === TANK ? -TANK_BARREL_Y * TANK_SCALE : 13);
         const aim = Movement.groundShot(this, target, muzzleY, airborne);
 
         if (this.type === ANTIAIRCRAFT || (this.type === ARTILLERY && !this.perk?.artilleryRockets)) {
@@ -415,14 +415,19 @@ class GroundUnit {
             }
         }
 
-        // Снаряд САУ вилітає з кінця ствола, як його малює Art.drawArtillery.
+        // Снаряди САУ і танка вилітають з кінця ствола, як його малює Art.
         const howitzer = this.type === ARTILLERY;
+        const barrel = howitzer
+            ? { x: ARTILLERY_BARREL_X, y: ARTILLERY_BARREL_Y, length: ARTILLERY_BARREL_LENGTH, scale: ARTILLERY_SCALE }
+            : this.type === TANK
+                ? { x: TANK_BARREL_X, y: TANK_BARREL_Y, length: TANK_BARREL_LENGTH, scale: TANK_SCALE }
+                : null;
         const direction = this.team === 0 ? 1 : -1;
-        const muzzleX = howitzer
-            ? this.x + ARTILLERY_SCALE * (direction * ARTILLERY_BARREL_X + Math.cos(this.aimAngle) * ARTILLERY_BARREL_LENGTH)
+        const muzzleX = barrel
+            ? this.x + barrel.scale * (direction * barrel.x + Math.cos(this.aimAngle) * barrel.length)
             : this.x + Math.cos(this.aimAngle) * 19;
-        const shellY = howitzer
-            ? this.y + ARTILLERY_SCALE * (ARTILLERY_BARREL_Y + Math.sin(this.aimAngle) * ARTILLERY_BARREL_LENGTH)
+        const shellY = barrel
+            ? this.y + barrel.scale * (barrel.y + Math.sin(this.aimAngle) * barrel.length)
             : muzzleY;
         const heavy = this.type !== INFANTRY;
         const shots = this.perk?.shots ?? 1;

@@ -4,7 +4,7 @@
 |---|---|
 | `config.js` | `canvas`, `context`, `world` (size, `groundLevel`, `laneLevel`, `impactLevel`, `basePosition`), all constants (`UNIT_STATS`, `PLANE_STATS`, bomb/rocket/AA-missile tunables), `clamp()` |
 | `movement.js` | `Movement`: ground advance/bounds, `stepProjectile`, `guideRocket` (homing), `stepSmoke`, plane steer/fly/fall, `bombLandingX`, `alignment`, ballistics (`artilleryShot`, `directShot`, `groundShot`) |
-| `art.js` | `Art`: `drawBackground`, `drawGroundUnit` → `drawInfantry`/`drawVehicle` (tank, AA)/`drawArtillery` (САУ, legendary MLRS via `drawRocketPack`), plane sprites |
+| `art.js` | `Art`: `drawBackground`, `drawGroundUnit` → `drawInfantry`/`drawTank`/`drawVehicle` (AA)/`drawArtillery` (САУ, legendary MLRS via `drawRocketPack`), plane sprites |
 | `effects.js` | `Smoke`, `Banner` classes + `spawnSmoke`, `spawnBombCloud`, `spawnExplosion`, `spawnLegendEffect`, `spawnNuclearExplosion`; area damage: `damageArea` (ground), `damagePlanesArea` |
 | `projectile.js` | `segmentHitsRectangle`, `Projectile` (`static fire(options)`, `update`, `hitPlane`, `hitGroundUnit`, `detonate`, `detonateRocket`, `draw`) — covers bullets, shells, bombs, rockets, AA missiles |
 | `ground-unit.js` | `GroundUnit`: types INFANTRY/TANK/ANTIAIRCRAFT/ARTILLERY; `deploy`, `spawn`, `update`, `selectTarget`, `findGroundTarget`, `findAirTarget`, `fire`, `tryLaunchMissile` (AA), `draw` |

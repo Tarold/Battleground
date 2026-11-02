@@ -36,7 +36,7 @@ const Art = {
     ],
 
     VEHICLE_SPRITES: {
-        [TANK]: { turret: '<0>', turretY: -10, top: '=====', topY: -3, bottom: '---', bottomY: 4, belly: 'o¯¯¯o', bellyY: 0 },
+        [TANK]: { turret: '<0>', turretX: -2, turretY: -10, top: '======', topY: -3, bottom: '(oooo)' },
         [ANTIAIRCRAFT]: { top: '[AA]', topY: -4, bottom: 'o===o' },
         // САУ: башта ззаду; у легендарної РСЗВ замість башти кабіна спереду (X — уперед від центру).
         [ARTILLERY]: { turret: '[##]', turretX: -6, turretY: -10, cab: '[#]', cabX: 17, cabY: -10, top: '=======', topY: -3, bottom: '(ooooo)' }
@@ -90,13 +90,18 @@ const Art = {
             this.drawInfantry(unit, direction, time);
         } else if (unit.type === ARTILLERY) {
             this.drawArtillery(unit, direction);
+        } else if (unit.type === TANK) {
+            this.drawTank(unit, direction);
         } else {
             this.drawVehicle(unit, direction);
         }
 
         if (unit.legendary) {
             // Над РСЗВ зірка вище, щоб не налазила на піднятий пакет.
-            const starY = unit.type === INFANTRY ? -20 : (unit.type === ARTILLERY ? -42 * ARTILLERY_SCALE : -30);
+            const starY = unit.type === INFANTRY ? -20
+                : unit.type === ARTILLERY ? -42 * ARTILLERY_SCALE
+                    : unit.type === TANK ? -30 * TANK_SCALE
+                        : -30;
             this.drawLegendStar(0, starY, time);
         }
 
@@ -172,46 +177,57 @@ const Art = {
         return direction === 1 ? 0 : Math.PI;
     },
 
+    // Зенітка: корпус і спарений ствол.
     drawVehicle(unit, direction) {
         const sprite = this.VEHICLE_SPRITES[unit.type];
 
         context.font = 'bold 14px monospace';
-
-        if (sprite.turret) {
-            context.fillText(sprite.turret, 0, sprite.turretY);
-        }
-
         context.fillText(sprite.top, 0, sprite.topY);
-        context.fillText(sprite.bottom, 0, sprite.bottomY === undefined ? 5 : sprite.bottomY);
-
-        // Нижній ряд гусениць: дефіси під підкресленням.
-        if (sprite.belly) {
-            context.fillText(sprite.belly, 0, sprite.bellyY);
-        }
+        context.fillText(sprite.bottom, 0, 5);
 
         const barrelAngle = this.barrelAngle(unit, direction);
         const barrelLength = 22;
         const barrelX = Math.cos(barrelAngle) * barrelLength;
-        // Дуло танка піднято над базовою точкою інших машин.
-        const barrelBaseY = unit.type === TANK ? -16 : -12;
-        const barrelY = barrelBaseY + Math.sin(barrelAngle) * barrelLength;
+        const barrelY = -12 + Math.sin(barrelAngle) * barrelLength;
 
         context.lineWidth = 2;
         context.beginPath();
-        context.moveTo(0, barrelBaseY);
+        context.moveTo(0, -12);
         context.lineTo(barrelX, barrelY);
+        context.moveTo(5, -12);
+        context.lineTo(barrelX + 5, barrelY);
+        context.stroke();
+    },
 
-        if (unit.type === TANK && unit.legendary) {
-            context.moveTo(0, barrelBaseY + 5);
-            context.lineTo(barrelX, barrelY + 5);
-        }
+    // Танк: башта по центру, гладкий ствол; у легенди (серія пострілів) — два паралельні стволи.
+    drawTank(unit, direction) {
+        const sprite = this.VEHICLE_SPRITES[TANK];
+        const angle = this.barrelAngle(unit, direction);
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        const baseX = direction * TANK_BARREL_X;
+        const offsets = unit.legendary ? [-2, 2.5] : [0];
 
-        if (unit.type === ANTIAIRCRAFT) {
-            context.moveTo(5, -12);
-            context.lineTo(barrelX + 5, barrelY);
+        context.save();
+        context.scale(TANK_SCALE, TANK_SCALE);
+        context.font = 'bold 14px monospace';
+        context.fillText(sprite.bottom, 0, 5);
+        context.fillText(sprite.top, 0, sprite.topY);
+        context.fillText(sprite.turret, direction * sprite.turretX, sprite.turretY);
+
+        context.lineWidth = 2.5;
+        context.beginPath();
+
+        for (const offset of offsets) {
+            const startX = baseX - sin * offset;
+            const startY = TANK_BARREL_Y + cos * offset;
+
+            context.moveTo(startX, startY);
+            context.lineTo(startX + cos * TANK_BARREL_LENGTH, startY + sin * TANK_BARREL_LENGTH);
         }
 
         context.stroke();
+        context.restore();
     },
 
     // САУ (гармата з дульним гальмом) або легендарна РСЗВ (пакет ракет) на спільному шасі.

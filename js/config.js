@@ -119,6 +119,12 @@ const ARTILLERY_TURRET_SPEED = 0.9;
 const ARTILLERY_TURRET_TOLERANCE = 0.06;
 const ARTILLERY_EXPLOSION_RADIUS = 72;
 
+// Вигляд танка: масштаб спрайта, вісь ствола (зсув уперед від центру, висота), довжина ствола.
+const TANK_SCALE = 0.8;
+const TANK_BARREL_X = 9;
+const TANK_BARREL_Y = -14;
+const TANK_BARREL_LENGTH = 22;
+
 // Масштаб усього спрайта артилерії (САУ і РСЗВ) відносно інших машин; точки пострілу масштабуються так само.
 const ARTILLERY_SCALE = 0.8;
 
