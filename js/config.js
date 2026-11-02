@@ -113,6 +113,19 @@ const INFANTRY_DUEL_KILL_VALUE = 1;
 const AA_TURRET_SPEED = 1.4;
 const AA_TURRET_TOLERANCE = 0.12;
 
+// Вигляд зенітки-пікапа: масштаб, вісь спарених стволів (X — уперед від центру), довжина стволів.
+const AA_SCALE = 0.8;
+const AA_GUN_X = -3;
+const AA_GUN_Y = -14;
+const AA_GUN_LENGTH = 18;
+
+// Причіп легенди з двома контейнерами ракет: центр причепа позаду машини, зсуви контейнерів, їхній кут і довжина.
+const AA_TRAILER_X = -52;
+const AA_POD_OFFSETS = [-5, 4];
+const AA_POD_Y = -11;
+const AA_POD_ELEVATION = 1.2;
+const AA_POD_LENGTH = 12;
+
 const ANTIAIRCRAFT_GROUND_RANGE = 260;
 const ARTILLERY_MINIMUM_RANGE = 110;
 const ARTILLERY_TURRET_SPEED = 0.9;
@@ -135,7 +148,7 @@ const ARTILLERY_BARREL_LENGTH = 26;
 const ARTILLERY_STOWED_ANGLE = 0.12;
 
 // Вигляд легендарної РСЗВ: вісь пакета (від'ємний X — позаду центру), розміри, підйом у русі.
-const ROCKET_PACK_X = -12;
+const ROCKET_PACK_X = -21;
 const ROCKET_PACK_Y = -12;
 const ROCKET_PACK_LENGTH = 26;
 const ROCKET_PACK_HEIGHT = 9;

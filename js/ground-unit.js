@@ -415,13 +415,15 @@ class GroundUnit {
             }
         }
 
-        // Снаряди САУ і танка вилітають з кінця ствола, як його малює Art.
+        // Снаряди САУ, танка і зенітки вилітають з кінця ствола, як його малює Art.
         const howitzer = this.type === ARTILLERY;
         const barrel = howitzer
             ? { x: ARTILLERY_BARREL_X, y: ARTILLERY_BARREL_Y, length: ARTILLERY_BARREL_LENGTH, scale: ARTILLERY_SCALE }
             : this.type === TANK
                 ? { x: TANK_BARREL_X, y: TANK_BARREL_Y, length: TANK_BARREL_LENGTH, scale: TANK_SCALE }
-                : null;
+                : this.type === ANTIAIRCRAFT
+                    ? { x: AA_GUN_X, y: AA_GUN_Y, length: AA_GUN_LENGTH, scale: AA_SCALE }
+                    : null;
         const direction = this.team === 0 ? 1 : -1;
         const muzzleX = barrel
             ? this.x + barrel.scale * (direction * barrel.x + Math.cos(this.aimAngle) * barrel.length)
@@ -626,14 +628,16 @@ class GroundUnit {
             this.specialReload = AA_MISSILE_RELOAD + Math.random() * 1.5;
         }
 
-        // Ракети стартують майже вертикально, потім наводяться.
+        // Ракети стартують майже вертикально з контейнерів причепа (по черзі), потім наводяться.
         const direction = this.team === 0 ? 1 : -1;
-        const side = this.missilesLeft % 2 === 0 ? 0.25 : -0.25;
+        const pod = this.missilesLeft % 2;
+        const side = pod === 0 ? 0.25 : -0.25;
         const launchAngle = -Math.PI / 2 + direction * 0.35 + side;
-        const launchY = this.y - 16;
+        const launchX = this.x + direction * AA_SCALE * (AA_TRAILER_X + AA_POD_OFFSETS[pod] + Math.cos(AA_POD_ELEVATION) * AA_POD_LENGTH);
+        const launchY = this.y + AA_SCALE * (AA_POD_Y - Math.sin(AA_POD_ELEVATION) * AA_POD_LENGTH);
 
         Projectile.fire({
-            x: this.x,
+            x: launchX,
             y: launchY,
             velocityX: Math.cos(launchAngle) * AA_MISSILE_SPEED,
             velocityY: Math.sin(launchAngle) * AA_MISSILE_SPEED,
@@ -649,7 +653,7 @@ class GroundUnit {
             life: 6
         });
 
-        spawnExplosion(this.x, launchY, 8);
+        spawnExplosion(launchX, launchY, 8);
     }
 
     draw(time) {

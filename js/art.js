@@ -37,7 +37,8 @@ const Art = {
 
     VEHICLE_SPRITES: {
         [TANK]: { turret: '<0>', turretX: -2, turretY: -10, top: '======', topY: -3, bottom: '(oooo)' },
-        [ANTIAIRCRAFT]: { top: '[AA]', topY: -4, bottom: 'o===o' },
+        // Пікап носом праворуч (для червоних текст дзеркалиться): кабіна спереду, турелька в кузові; причіп — у легенди.
+        [ANTIAIRCRAFT]: { wheels: 'OO---O', body: '[==|#\\', turret: '(o)', turretX: -8, trailer: '[==]', trailerWheels: 'O' },
         // САУ: башта ззаду; у легендарної РСЗВ замість башти кабіна спереду (X — уперед від центру).
         [ARTILLERY]: { turret: '[##]', turretX: -6, turretY: -10, cab: '[#]', cabX: 17, cabY: -10, top: '=======', topY: -3, bottom: '(ooooo)' }
     },
@@ -93,7 +94,7 @@ const Art = {
         } else if (unit.type === TANK) {
             this.drawTank(unit, direction);
         } else {
-            this.drawVehicle(unit, direction);
+            this.drawAntiAircraft(unit, direction);
         }
 
         if (unit.legendary) {
@@ -101,7 +102,7 @@ const Art = {
             const starY = unit.type === INFANTRY ? -20
                 : unit.type === ARTILLERY ? -42 * ARTILLERY_SCALE
                     : unit.type === TANK ? -30 * TANK_SCALE
-                        : -30;
+                        : -30 * AA_SCALE;
             this.drawLegendStar(0, starY, time);
         }
 
@@ -177,25 +178,78 @@ const Art = {
         return direction === 1 ? 0 : Math.PI;
     },
 
-    // Зенітка: корпус і спарений ствол.
-    drawVehicle(unit, direction) {
-        const sprite = this.VEHICLE_SPRITES[unit.type];
+    // Пари символів, що міняються місцями при дзеркаленні тексту.
+    MIRROR_PAIRS: { '<': '>', '>': '<', '(': ')', ')': '(', '[': ']', ']': '[', '/': '\\', '\\': '/' },
 
+    // Текст спрайта носом праворуч; для команди, що дивиться ліворуч, — дзеркальний.
+    facingText(text, direction) {
+        if (direction === 1) {
+            return text;
+        }
+
+        return [...text].reverse().map(character => this.MIRROR_PAIRS[character] ?? character).join('');
+    },
+
+    // Зенітка-пікап зі спареними стволами; легенда тягне причіп з контейнерами ракет.
+    drawAntiAircraft(unit, direction) {
+        const sprite = this.VEHICLE_SPRITES[ANTIAIRCRAFT];
+        const angle = this.barrelAngle(unit, direction);
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        const baseX = direction * AA_GUN_X;
+
+        context.save();
+        context.scale(AA_SCALE, AA_SCALE);
         context.font = 'bold 14px monospace';
-        context.fillText(sprite.top, 0, sprite.topY);
-        context.fillText(sprite.bottom, 0, 5);
+        context.fillText(this.facingText(sprite.wheels, direction), 0, 5);
+        context.fillText(this.facingText(sprite.body, direction), 0, -3);
+        context.fillText(sprite.turret, direction * sprite.turretX, -11);
 
-        const barrelAngle = this.barrelAngle(unit, direction);
-        const barrelLength = 22;
-        const barrelX = Math.cos(barrelAngle) * barrelLength;
-        const barrelY = -12 + Math.sin(barrelAngle) * barrelLength;
-
-        context.lineWidth = 2;
+        context.lineWidth = 1.5;
         context.beginPath();
-        context.moveTo(0, -12);
-        context.lineTo(barrelX, barrelY);
-        context.moveTo(5, -12);
-        context.lineTo(barrelX + 5, barrelY);
+
+        for (const offset of [-1.8, 1.8]) {
+            const startX = baseX - sin * offset;
+            const startY = AA_GUN_Y + cos * offset;
+
+            context.moveTo(startX, startY);
+            context.lineTo(startX + cos * AA_GUN_LENGTH, startY + sin * AA_GUN_LENGTH);
+        }
+
+        context.stroke();
+
+        if (unit.perk?.missiles) {
+            this.drawMissileTrailer(sprite, direction);
+        }
+
+        context.restore();
+    },
+
+    // Причіп на дишлі з двома контейнерами, піднятими під кутом пуску ракет.
+    drawMissileTrailer(sprite, direction) {
+        const centerX = direction * AA_TRAILER_X;
+        const podX = Math.cos(AA_POD_ELEVATION) * AA_POD_LENGTH;
+        const podY = Math.sin(AA_POD_ELEVATION) * AA_POD_LENGTH;
+
+        context.lineWidth = 1.5;
+        context.beginPath();
+        context.moveTo(-direction * 26, 0);
+        context.lineTo(-direction * 36, 0);
+        context.stroke();
+
+        context.fillText(sprite.trailerWheels, centerX, 5);
+        context.fillText(sprite.trailer, centerX, -3);
+
+        context.lineWidth = 3.5;
+        context.beginPath();
+
+        for (const offset of AA_POD_OFFSETS) {
+            const startX = centerX + direction * offset;
+
+            context.moveTo(startX, AA_POD_Y);
+            context.lineTo(startX + direction * podX, AA_POD_Y - podY);
+        }
+
         context.stroke();
     },
 
