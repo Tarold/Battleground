@@ -274,7 +274,7 @@ class Helicopter extends Plane {
         const muzzle = this.muzzle;
         const airborne = target.state !== undefined;
         let aimX = target.x;
-        let aimY = airborne ? target.y : target.y - 6;
+        let aimY = airborne ? target.y : Movement.aimPointY(target);
 
         if (airborne) {
             const leadTime = Math.hypot(aimX - muzzle.x, aimY - muzzle.y) / HELI_GUN_SPEED;

@@ -113,11 +113,48 @@ const INFANTRY_DUEL_KILL_VALUE = 1;
 const AA_TURRET_SPEED = 1.4;
 const AA_TURRET_TOLERANCE = 0.12;
 
+// Вигляд зенітки-пікапа: масштаб, вісь спарених стволів (X — уперед від центру), довжина стволів.
+const AA_SCALE = 0.8;
+const AA_GUN_X = -3;
+const AA_GUN_Y = -14;
+const AA_GUN_LENGTH = 18;
+
+// Причіп легенди з двома контейнерами ракет: центр причепа позаду машини, зсуви контейнерів, їхній кут і довжина.
+const AA_TRAILER_X = -52;
+const AA_POD_OFFSETS = [-5, 4];
+const AA_POD_Y = -11;
+const AA_POD_ELEVATION = 1.2;
+const AA_POD_LENGTH = 12;
+
 const ANTIAIRCRAFT_GROUND_RANGE = 260;
 const ARTILLERY_MINIMUM_RANGE = 110;
 const ARTILLERY_TURRET_SPEED = 0.9;
 const ARTILLERY_TURRET_TOLERANCE = 0.06;
 const ARTILLERY_EXPLOSION_RADIUS = 72;
+
+// Вигляд танка: масштаб спрайта, вісь ствола (зсув уперед від центру, висота), довжина ствола.
+const TANK_SCALE = 0.8;
+const TANK_BARREL_X = 9;
+const TANK_BARREL_Y = -14;
+const TANK_BARREL_LENGTH = 22;
+
+// Масштаб усього спрайта артилерії (САУ і РСЗВ) відносно інших машин; точки пострілу масштабуються так само.
+const ARTILLERY_SCALE = 0.8;
+
+// Вигляд САУ: вісь ствола (зсув уперед від центру, висота), довжина, підйом ствола в русі (рад).
+const ARTILLERY_BARREL_X = 8;
+const ARTILLERY_BARREL_Y = -14;
+const ARTILLERY_BARREL_LENGTH = 26;
+const ARTILLERY_STOWED_ANGLE = 0.12;
+
+// Вигляд легендарної РСЗВ: вісь пакета (від'ємний X — позаду центру), розміри, підйом у русі.
+const ROCKET_PACK_X = -21;
+const ROCKET_PACK_Y = -12;
+const ROCKET_PACK_LENGTH = 26;
+const ROCKET_PACK_HEIGHT = 9;
+const ROCKET_PACK_STOWED_ANGLE = 0.08;
+// Допуск наведення пакета перед залпом (ширший за гармату: кут ракет трохи гуляє).
+const ROCKET_PACK_TOLERANCE = 0.15;
 
 // Види літальних апаратів у порядку пулу (battle.planes) і таблиці рахунку.
 const PLANE_KINDS = ['fighter', 'bomber', 'heli'];

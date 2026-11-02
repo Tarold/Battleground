@@ -232,7 +232,25 @@ class GroundUnit {
             return;
         }
 
-        this.aimAngle = Math.atan2(target.y - this.y, target.x - this.x);
+        if (this.perk?.artilleryRockets) {
+            // Пакет РСЗВ між залпами плавно піднімається на кут, під яким полетять ракети.
+            const muzzle = this.rocketPackPoint(ROCKET_PACK_LENGTH - 2);
+            const shot = Movement.rocketSalvoShot(target.x - muzzle.x, target.y - muzzle.y);
+            const desiredAngle = Math.atan2(shot.velocityY, shot.velocityX);
+
+            this.aimAngle = Movement.turnToward(this.aimAngle, desiredAngle, ARTILLERY_TURRET_SPEED * deltaTime);
+
+            const error = Math.abs(Math.atan2(
+                Math.sin(desiredAngle - this.aimAngle),
+                Math.cos(desiredAngle - this.aimAngle)
+            ));
+
+            if (error > ROCKET_PACK_TOLERANCE) {
+                return;
+            }
+        } else {
+            this.aimAngle = Math.atan2(target.y - this.y, target.x - this.x);
+        }
 
         if (this.reload <= 0) {
             this.fire(target, airborne);
@@ -374,7 +392,7 @@ class GroundUnit {
             return;
         }
 
-        const muzzleY = this.y - (this.type === INFANTRY ? (this.prone ? 3 : 7) : 13);
+        const muzzleY = this.y - (this.type === INFANTRY ? (this.prone ? 3 : 7) : this.type === TANK ? -TANK_BARREL_Y * TANK_SCALE : 13);
         const aim = Movement.groundShot(this, target, muzzleY, airborne);
 
         if (this.type === ANTIAIRCRAFT || (this.type === ARTILLERY && !this.perk?.artilleryRockets)) {
@@ -397,7 +415,22 @@ class GroundUnit {
             }
         }
 
-        const muzzleX = this.x + Math.cos(this.aimAngle) * 19;
+        // Снаряди САУ, танка і зенітки вилітають з кінця ствола, як його малює Art.
+        const howitzer = this.type === ARTILLERY;
+        const barrel = howitzer
+            ? { x: ARTILLERY_BARREL_X, y: ARTILLERY_BARREL_Y, length: ARTILLERY_BARREL_LENGTH, scale: ARTILLERY_SCALE }
+            : this.type === TANK
+                ? { x: TANK_BARREL_X, y: TANK_BARREL_Y, length: TANK_BARREL_LENGTH, scale: TANK_SCALE }
+                : this.type === ANTIAIRCRAFT
+                    ? { x: AA_GUN_X, y: AA_GUN_Y, length: AA_GUN_LENGTH, scale: AA_SCALE }
+                    : null;
+        const direction = this.team === 0 ? 1 : -1;
+        const muzzleX = barrel
+            ? this.x + barrel.scale * (direction * barrel.x + Math.cos(this.aimAngle) * barrel.length)
+            : this.x + Math.cos(this.aimAngle) * 19;
+        const shellY = barrel
+            ? this.y + barrel.scale * (barrel.y + Math.sin(this.aimAngle) * barrel.length)
+            : muzzleY;
         const heavy = this.type !== INFANTRY;
         const shots = this.perk?.shots ?? 1;
 
@@ -407,7 +440,7 @@ class GroundUnit {
 
             Projectile.fire({
                 x: muzzleX,
-                y: muzzleY + (this.type === ARTILLERY ? 0 : offset * 5),
+                y: shellY + (howitzer ? 0 : offset * 5),
                 velocityX: shot.velocityX,
                 velocityY: shot.velocityY,
                 team: this.team,
@@ -421,7 +454,7 @@ class GroundUnit {
             });
         }
 
-        spawnSmoke(muzzleX, muzzleY, Math.cos(this.aimAngle) * 25, -15, heavy, 0.35);
+        spawnSmoke(muzzleX, shellY, Math.cos(this.aimAngle) * 25, -15, heavy, 0.35);
     }
 
     // Легендарна артилерія (РСЗВ) фіксує точку цілі й стоїть на місці, поки не випустить весь залп.
@@ -446,8 +479,10 @@ class GroundUnit {
         this.salvoLeft--;
 
         const direction = this.team === 0 ? 1 : -1;
-        const muzzleX = this.x + direction * 8;
-        const muzzleY = this.y - 16;
+        const muzzle = this.rocketPackPoint(ROCKET_PACK_LENGTH - 2);
+        const exhaust = this.rocketPackPoint(-2);
+        const muzzleX = muzzle.x;
+        const muzzleY = muzzle.y;
         const spread = (Math.random() - 0.5) * ARTILLERY_ROCKET_SPREAD;
         const shot = Movement.rocketSalvoShot(
             this.salvoX + spread - muzzleX,
@@ -473,7 +508,19 @@ class GroundUnit {
         });
 
         // Струмінь вогню та диму позаду пускової.
-        spawnSmoke(muzzleX - direction * 12, muzzleY + 3, -direction * (45 + Math.random() * 30), -10 - Math.random() * 15, true, 0.75);
+        spawnSmoke(exhaust.x, exhaust.y, -direction * (45 + Math.random() * 30), -10 - Math.random() * 15, true, 0.75);
+    }
+
+    // Точка на осі пакета РСЗВ (along — відстань від осі вздовж пакета), так само як його малює Art.drawRocketPack.
+    rocketPackPoint(along) {
+        const direction = this.team === 0 ? 1 : -1;
+        const elevation = Math.atan2(-Math.sin(this.aimAngle), Math.cos(this.aimAngle) * direction);
+        const middle = 2 - ROCKET_PACK_HEIGHT / 2;
+
+        return {
+            x: this.x + ARTILLERY_SCALE * direction * (ROCKET_PACK_X + along * Math.cos(elevation) + middle * Math.sin(elevation)),
+            y: this.y + ARTILLERY_SCALE * (ROCKET_PACK_Y - along * Math.sin(elevation) + middle * Math.cos(elevation))
+        };
     }
 
     // РПГ легендарної піхоти: пряма ракета по найближчому наземному ворогу.
@@ -494,7 +541,7 @@ class GroundUnit {
         }
 
         const muzzleY = this.y - 10;
-        const angle = Math.atan2(target.y - 7 - muzzleY, target.x - this.x);
+        const angle = Math.atan2(Movement.aimPointY(target) - muzzleY, target.x - this.x);
 
         this.rpgReload = RPG_RELOAD + Math.random();
 
@@ -529,7 +576,7 @@ class GroundUnit {
         }
 
         const startY = this.y - 10;
-        const shot = Movement.grenadeShot(target.x - this.x, target.y - 7 - startY);
+        const shot = Movement.grenadeShot(target.x - this.x, Movement.aimPointY(target) - startY);
 
         this.specialReload = GRENADE_RELOAD + Math.random();
 
@@ -581,14 +628,16 @@ class GroundUnit {
             this.specialReload = AA_MISSILE_RELOAD + Math.random() * 1.5;
         }
 
-        // Ракети стартують майже вертикально, потім наводяться.
+        // Ракети стартують майже вертикально з контейнерів причепа (по черзі), потім наводяться.
         const direction = this.team === 0 ? 1 : -1;
-        const side = this.missilesLeft % 2 === 0 ? 0.25 : -0.25;
+        const pod = this.missilesLeft % 2;
+        const side = pod === 0 ? 0.25 : -0.25;
         const launchAngle = -Math.PI / 2 + direction * 0.35 + side;
-        const launchY = this.y - 16;
+        const launchX = this.x + direction * AA_SCALE * (AA_TRAILER_X + AA_POD_OFFSETS[pod] + Math.cos(AA_POD_ELEVATION) * AA_POD_LENGTH);
+        const launchY = this.y + AA_SCALE * (AA_POD_Y - Math.sin(AA_POD_ELEVATION) * AA_POD_LENGTH);
 
         Projectile.fire({
-            x: this.x,
+            x: launchX,
             y: launchY,
             velocityX: Math.cos(launchAngle) * AA_MISSILE_SPEED,
             velocityY: Math.sin(launchAngle) * AA_MISSILE_SPEED,
@@ -604,7 +653,7 @@ class GroundUnit {
             life: 6
         });
 
-        spawnExplosion(this.x, launchY, 8);
+        spawnExplosion(launchX, launchY, 8);
     }
 
     draw(time) {

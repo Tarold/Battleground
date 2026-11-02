@@ -243,13 +243,18 @@ const Movement = {
         return this.lobbedShot(horizontalDistance, verticalDistance, flightTime, GRENADE_RADIUS);
     },
 
+    // Висота точки прицілу: центр хітбокса цілі (лежача піхота нижча за стоячу).
+    aimPointY(target) {
+        return target.y - (target.prone ? 3 : 7);
+    },
+
     // Пряме влучання зі швидким снарядом; по літаку цілиться з випередженням.
     directShot(unit, target, muzzleY, airborne, offset) {
         const horizontalDistance = target.x - unit.x;
-        const verticalDistance = target.y - 7 - muzzleY;
+        const verticalDistance = this.aimPointY(target) - muzzleY;
         const speed = unit.type === ANTIAIRCRAFT ? 430 : 350;
         let aimX = target.x;
-        let aimY = target.y - 7;
+        let aimY = this.aimPointY(target);
 
         if (airborne) {
             const flightTime = Math.hypot(horizontalDistance, verticalDistance) / speed;
@@ -277,7 +282,7 @@ const Movement = {
 
             return this.artilleryShot(
                 target.x - unit.x + offset * ARTILLERY_BARRAGE_SPREAD + jitter,
-                target.y - 7 - muzzleY
+                this.aimPointY(target) - muzzleY
             );
         }
 
