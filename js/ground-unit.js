@@ -392,7 +392,7 @@ class GroundUnit {
             return;
         }
 
-        const muzzleY = this.y - (this.type === INFANTRY ? (this.prone ? 3 : 7) : this.type === TANK ? -TANK_BARREL_Y * TANK_SCALE : 13);
+        const muzzleY = this.y - (this.type === INFANTRY ? (this.prone ? 3 : 7) : this.type === TANK ? -TANK_BARREL_Y : 13);
         const aim = Movement.groundShot(this, target, muzzleY, airborne);
 
         if (this.type === ANTIAIRCRAFT || (this.type === ARTILLERY && !this.perk?.artilleryRockets)) {
@@ -418,18 +418,18 @@ class GroundUnit {
         // Снаряди САУ, танка і зенітки вилітають з кінця ствола, як його малює Art.
         const howitzer = this.type === ARTILLERY;
         const barrel = howitzer
-            ? { x: ARTILLERY_BARREL_X, y: ARTILLERY_BARREL_Y, length: ARTILLERY_BARREL_LENGTH, scale: ARTILLERY_SCALE }
+            ? { x: ARTILLERY_BARREL_X, y: ARTILLERY_BARREL_Y, length: ARTILLERY_BARREL_LENGTH }
             : this.type === TANK
-                ? { x: TANK_BARREL_X, y: TANK_BARREL_Y, length: TANK_BARREL_LENGTH, scale: TANK_SCALE }
+                ? { x: TANK_BARREL_X, y: TANK_BARREL_Y, length: TANK_BARREL_LENGTH }
                 : this.type === ANTIAIRCRAFT
-                    ? { x: AA_GUN_X, y: AA_GUN_Y, length: AA_GUN_LENGTH, scale: AA_SCALE }
+                    ? { x: AA_GUN_X, y: AA_GUN_Y, length: AA_GUN_LENGTH }
                     : null;
         const direction = this.team === 0 ? 1 : -1;
         const muzzleX = barrel
-            ? this.x + barrel.scale * (direction * barrel.x + Math.cos(this.aimAngle) * barrel.length)
+            ? this.x + direction * barrel.x + Math.cos(this.aimAngle) * barrel.length
             : this.x + Math.cos(this.aimAngle) * 19;
         const shellY = barrel
-            ? this.y + barrel.scale * (barrel.y + Math.sin(this.aimAngle) * barrel.length)
+            ? this.y + barrel.y + Math.sin(this.aimAngle) * barrel.length
             : muzzleY;
         const heavy = this.type !== INFANTRY;
         const shots = this.perk?.shots ?? 1;
@@ -518,8 +518,8 @@ class GroundUnit {
         const middle = 2 - ROCKET_PACK_HEIGHT / 2;
 
         return {
-            x: this.x + ARTILLERY_SCALE * direction * (ROCKET_PACK_X + along * Math.cos(elevation) + middle * Math.sin(elevation)),
-            y: this.y + ARTILLERY_SCALE * (ROCKET_PACK_Y - along * Math.sin(elevation) + middle * Math.cos(elevation))
+            x: this.x + direction * (ROCKET_PACK_X + along * Math.cos(elevation) + middle * Math.sin(elevation)),
+            y: this.y + ROCKET_PACK_Y - along * Math.sin(elevation) + middle * Math.cos(elevation)
         };
     }
 
@@ -633,8 +633,8 @@ class GroundUnit {
         const pod = this.missilesLeft % 2;
         const side = pod === 0 ? 0.25 : -0.25;
         const launchAngle = -Math.PI / 2 + direction * 0.35 + side;
-        const launchX = this.x + direction * AA_SCALE * (AA_TRAILER_X + AA_POD_OFFSETS[pod] + Math.cos(AA_POD_ELEVATION) * AA_POD_LENGTH);
-        const launchY = this.y + AA_SCALE * (AA_POD_Y - Math.sin(AA_POD_ELEVATION) * AA_POD_LENGTH);
+        const launchX = this.x + direction * (AA_TRAILER_X + AA_POD_OFFSETS[pod] + Math.cos(AA_POD_ELEVATION) * AA_POD_LENGTH);
+        const launchY = this.y + AA_POD_Y - Math.sin(AA_POD_ELEVATION) * AA_POD_LENGTH;
 
         Projectile.fire({
             x: launchX,

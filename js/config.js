@@ -113,8 +113,7 @@ const INFANTRY_DUEL_KILL_VALUE = 1;
 const AA_TURRET_SPEED = 1.4;
 const AA_TURRET_TOLERANCE = 0.12;
 
-// Вигляд зенітки-пікапа: масштаб, вісь спарених стволів (X — уперед від центру), довжина стволів.
-const AA_SCALE = 0.8;
+// Вигляд зенітки-пікапа: вісь спарених стволів (X — уперед від центру), довжина стволів.
 const AA_GUN_X = -3;
 const AA_GUN_Y = -14;
 const AA_GUN_LENGTH = 18;
@@ -132,14 +131,10 @@ const ARTILLERY_TURRET_SPEED = 0.9;
 const ARTILLERY_TURRET_TOLERANCE = 0.06;
 const ARTILLERY_EXPLOSION_RADIUS = 72;
 
-// Вигляд танка: масштаб спрайта, вісь ствола (зсув уперед від центру, висота), довжина ствола.
-const TANK_SCALE = 0.8;
+// Вигляд танка: вісь ствола (зсув уперед від центру, висота), довжина ствола.
 const TANK_BARREL_X = 9;
 const TANK_BARREL_Y = -14;
 const TANK_BARREL_LENGTH = 22;
-
-// Масштаб усього спрайта артилерії (САУ і РСЗВ) відносно інших машин; точки пострілу масштабуються так само.
-const ARTILLERY_SCALE = 0.8;
 
 // Вигляд САУ: вісь ствола (зсув уперед від центру, висота), довжина, підйом ствола в русі (рад).
 const ARTILLERY_BARREL_X = 8;

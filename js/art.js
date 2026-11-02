@@ -99,10 +99,7 @@ const Art = {
 
         if (unit.legendary) {
             // Над РСЗВ зірка вище, щоб не налазила на піднятий пакет.
-            const starY = unit.type === INFANTRY ? -20
-                : unit.type === ARTILLERY ? -42 * ARTILLERY_SCALE
-                    : unit.type === TANK ? -30 * TANK_SCALE
-                        : -30 * AA_SCALE;
+            const starY = unit.type === INFANTRY ? -20 : (unit.type === ARTILLERY ? -42 : -30);
             this.drawLegendStar(0, starY, time);
         }
 
@@ -198,8 +195,6 @@ const Art = {
         const sin = Math.sin(angle);
         const baseX = direction * AA_GUN_X;
 
-        context.save();
-        context.scale(AA_SCALE, AA_SCALE);
         context.fillText(this.facingText(sprite.wheels, direction), 0, 5);
         context.fillText(this.facingText(sprite.body, direction), 0, -3);
         context.fillText(sprite.turret, direction * sprite.turretX, -11);
@@ -220,8 +215,6 @@ const Art = {
         if (unit.perk?.missiles) {
             this.drawMissileTrailer(sprite, direction);
         }
-
-        context.restore();
     },
 
     // Причіп на дишлі з двома контейнерами, піднятими під кутом пуску ракет.
@@ -261,8 +254,6 @@ const Art = {
         const baseX = direction * TANK_BARREL_X;
         const offsets = unit.legendary ? [-2, 2.5] : [0];
 
-        context.save();
-        context.scale(TANK_SCALE, TANK_SCALE);
         context.fillText(sprite.bottom, 0, 5);
         context.fillText(sprite.top, 0, sprite.topY);
         context.fillText(sprite.turret, direction * sprite.turretX, sprite.turretY);
@@ -279,7 +270,6 @@ const Art = {
         }
 
         context.stroke();
-        context.restore();
     },
 
     // САУ (гармата з дульним гальмом) або легендарна РСЗВ (пакет ракет) на спільному шасі.
@@ -287,8 +277,6 @@ const Art = {
         const sprite = this.VEHICLE_SPRITES[ARTILLERY];
         const angle = this.barrelAngle(unit, direction);
 
-        context.save();
-        context.scale(ARTILLERY_SCALE, ARTILLERY_SCALE);
         context.fillText(sprite.bottom, 0, 5);
         context.fillText(sprite.top, 0, sprite.topY);
 
@@ -299,8 +287,6 @@ const Art = {
             context.fillText(sprite.turret, direction * sprite.turretX, sprite.turretY);
             this.drawHowitzerBarrel(direction * ARTILLERY_BARREL_X, ARTILLERY_BARREL_Y, angle, ARTILLERY_BARREL_LENGTH);
         }
-
-        context.restore();
     },
 
     // Товстий ствол із дульним гальмом (поперечна риска біля кінця).
