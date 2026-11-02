@@ -99,7 +99,7 @@ const Art = {
 
         if (unit.legendary) {
             // Над РСЗВ зірка вище, щоб не налазила на піднятий пакет.
-            const starY = unit.type === INFANTRY ? -20 : (unit.type === ARTILLERY ? -42 : -30);
+            const starY = unit.type === INFANTRY ? -25 : (unit.type === ARTILLERY ? -42 : -30);
             this.drawLegendStar(0, starY, time);
         }
 
@@ -115,26 +115,122 @@ const Art = {
         context.globalAlpha = 1;
     },
 
+    // Піхотинець: голова над ногами по центру, гвинтівка — лінія від плеча під кутом прицілу (як ствол техніки).
     drawInfantry(unit, direction, time) {
-        if (unit.prone) {
-            // Лежачий піхотинець: тулуб і зброя вздовж землі.
-            context.fillText(direction === 1 ? '_o=-' : '-=o_', 0, 5);
+        if (unit.dropHeight > 0) {
+            // Парашутист гойдається навколо купола і стріляє просто з-під нього.
+            const sway = Math.sin(time * PARACHUTE_SWAY_SPEED + unit.animationPhase) * PARACHUTE_SWAY;
+
+            context.translate(0, PARACHUTE_TOP);
+            context.rotate(sway);
+            context.translate(0, -PARACHUTE_TOP);
+            this.drawParachute();
+            context.fillText('o', 0, -5);
+            context.fillText('||', 0, 5);
+            this.drawRifle(direction, INFANTRY_RIFLE_X, INFANTRY_RIFLE_Y, unit.aimAngle - sway);
             return;
         }
 
+        if (unit.signalTimer > 0) {
+            this.drawSignalWaves(unit.prone ? direction * PRONE_HEAD_X : 0, unit.prone ? -6 : -16, unit.signalTimer);
+        }
+
+        if (unit.prone) {
+            // Лежачий: тулуб — суцільна лінія вздовж землі, голова попереду, гвинтівка за нею.
+            context.fillText('o', direction * PRONE_HEAD_X, 5);
+
+            if (unit.legendary) {
+                this.drawHelmet(direction * PRONE_HEAD_X, 5);
+            }
+
+            context.lineWidth = 2.5;
+            context.beginPath();
+            context.moveTo(-direction * 11, 1);
+            context.lineTo(direction * (PRONE_HEAD_X - 4), 1);
+            context.stroke();
+            this.drawRifle(direction, PRONE_RIFLE_X, PRONE_RIFLE_Y, unit.aimAngle);
+            return;
+        }
+
+        // Крок: ноги по черзі то розставлені, то разом.
         const step = unit.moving && Math.sin(time * 10 + unit.animationPhase) > 0;
-        const head = direction === 1
-            ? (step ? 'o/' : 'o-')
-            : (step ? '\\o' : '-o');
 
-        context.fillText(head, 0, -5);
-        context.fillText(step ? '/\\' : '|\\', 0, 5);
+        context.fillText('o', 0, -5);
+        context.fillText(step ? '||' : '/\\', 0, 5);
 
-        // Труба видна лише коли піхотинець стоїть і цілиться (за спиною — не малюємо).
-        if (unit.legendary && unit.rpgStance > 0) {
+        if (unit.legendary) {
+            this.drawHelmet(0, -5);
+        }
+
+        // Для пострілу з РПГ піхотинець кладе трубу на плече замість гвинтівки.
+        if (unit.rpgStance > 0) {
             this.drawRpgTube(direction, -6, 0);
+        } else {
+            this.drawRifle(direction, INFANTRY_RIFLE_X, INFANTRY_RIFLE_Y, unit.aimAngle);
         }
     },
+
+    // Квадратний шолом легенди поверх голови 'o' (y — базова лінія голови).
+    drawHelmet(x, y) {
+        context.fillRect(x - 5, y - 11, 10, 4);
+    },
+
+    // Хвилі радіосигналу виклику десанту: дуги, що піднімаються від голови і розширюються, згасаючи.
+    drawSignalWaves(x, y, timer) {
+        const elapsed = AIRDROP_SIGNAL_TIME - timer;
+        const alpha = context.globalAlpha;
+
+        context.lineWidth = 2;
+
+        for (let wave = 0; wave < AIRDROP_SIGNAL_WAVES; wave++) {
+            const progress = elapsed * 1.5 - wave / AIRDROP_SIGNAL_WAVES;
+
+            if (progress < 0 || progress > 1) {
+                continue;
+            }
+
+            const radius = 6 + progress * 16;
+
+            context.globalAlpha = alpha * (1 - progress);
+            context.beginPath();
+            context.arc(x, y - progress * AIRDROP_SIGNAL_RISE + radius, radius, Math.PI * 1.2, Math.PI * 1.8);
+            context.stroke();
+        }
+
+        context.globalAlpha = alpha;
+    },
+
+    drawRifle(direction, x, y, angle) {
+        const startX = direction * x;
+
+        context.lineWidth = 2;
+        context.beginPath();
+        context.moveTo(startX, y);
+        context.lineTo(startX + Math.cos(angle) * INFANTRY_RIFLE_LENGTH, y + Math.sin(angle) * INFANTRY_RIFLE_LENGTH);
+        context.stroke();
+    },
+
+    // Купол парашута над піхотинцем і стропи до плечей.
+    drawParachute() {
+        const radius = 11;
+        const top = PARACHUTE_TOP;
+
+        context.lineWidth = 1;
+        context.beginPath();
+        context.moveTo(-radius, top);
+        context.lineTo(-2, -12);
+        context.moveTo(radius, top);
+        context.lineTo(2, -12);
+        context.stroke();
+
+        context.globalAlpha *= 0.85;
+        context.beginPath();
+        context.arc(0, top, radius, Math.PI, 0);
+        context.closePath();
+        context.fill();
+        context.globalAlpha /= 0.85;
+    },
+
 
     // Труба РПГ у руках: товста лінія з бойовою частиною спереду, tilt — нахил від горизонту вгору (0 = паралельно землі).
     drawRpgTube(direction, y, tilt) {
@@ -354,8 +450,8 @@ const Art = {
 
     // --- Planes ------------------------------------------------------------
 
-    drawPlane(plane, time) {
-        const sprite = this.PLANE_SPRITES[plane.bomber ? 'bomber' : 'fighter'];
+    drawPlane(plane, time, spriteName = plane.bomber ? 'bomber' : 'fighter') {
+        const sprite = this.PLANE_SPRITES[spriteName];
 
         context.save();
         context.translate(plane.x, plane.y);

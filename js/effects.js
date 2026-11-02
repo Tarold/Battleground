@@ -179,7 +179,8 @@ function damageArea(x, radius, damage, team, targetLane, owner = null) {
     }
 
     for (const unit of battle.groundUnits) {
-        if (!unit.active || unit.team === team || unit.lane !== targetLane) {
+        // Парашутиста високо в повітрі вибух на землі не зачіпає.
+        if (!unit.active || unit.team === team || unit.lane !== targetLane || unit.dropHeight > radius) {
             continue;
         }
 

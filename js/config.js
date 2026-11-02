@@ -60,10 +60,10 @@ const LANE_SCALES = [0.78, 0.9, 1];
 // Параметри наземних юнітів, індекс = тип юніта.
 // killValue = скільки вбивств зараховується тому, хто знищив цього юніта (legend.killValue — якщо він легенда).
 // legend: kills = скільки вбивств до статусу легенди, health = HP легенди,
-// решта полів — перки (shots, artilleryRockets = залп ракет, burst = серія пострілів по черзі, missiles, rpg, rockets, regen = HP/с, instantLock = без відліку захоплення). Без health легенда не отримує бонусу HP.
+// решта полів — перки (shots, artilleryRockets = залп ракет, burst = серія пострілів по черзі, missiles, airdrop = виклик десанту, rockets, regen = HP/с, instantLock = без відліку захоплення). Без health легенда не отримує бонусу HP.
 const UNIT_STATS = [
     { name: 'INFANTRY', health: 2, speed: 30, range: 290, reload: 0.8,  damage: 1, killValue: 0.5,
-        legend: { kills: 2, health: 5, rpg: true, killValue: 0.5 } },
+        legend: { kills: 2, health: 5, airdrop: true, killValue: 0.5 } },
     { name: 'TANK', health: 9, speed: 22, range: 245, reload: 1.65, damage: 3, killValue: 1,
         legend: { kills: 3, health: 16, burst: 2 } },
     { name: 'ANTI-AIR', health: 4, speed: 25, range: 430, reload: 0.5,  damage: 2, killValue: 1,
@@ -97,14 +97,25 @@ const settings = {
 };
 
 // Піхота лягає, коли бачить наземного ворога на своїй лінії ближче за PRONE_SIGHT_RANGE (літаки ігноруються).
+// Порядок дистанцій: лягає (PRONE_SIGHT_RANGE) → стріляє з гвинтівки (range піхоти) і повзе →
+// на INFANTRY_CRAWL_STOP (у межах RPG_RANGE) зупиняється й б'є з РПГ.
 // Лежача піхота: менша ціль для куль, менший радіус ураження вибухами, повзе повільніше, стріляє рідше.
-const PRONE_SIGHT_RANGE = 300;
+const PRONE_SIGHT_RANGE = 320;
+const INFANTRY_CRAWL_STOP = 210;
 const PRONE_HOLD_TIME = 1.2;
-const PRONE_SPEED_FACTOR = 0.4;
+const PRONE_SPEED_FACTOR = 0.6;
 const PRONE_RELOAD_FACTOR = 1.3;
 const PRONE_BLAST_FACTOR = 0.45;
 const PRONE_HIT_HALF_HEIGHT = 3;
 const PRONE_HIT_HALF_WIDTH = 10;
+
+// Вигляд піхоти: гвинтівка — лінія від плеча (X — уперед від центру) під кутом прицілу; у лежачого плече нижче й попереду.
+const INFANTRY_RIFLE_X = 3;
+const INFANTRY_RIFLE_Y = -4;
+const PRONE_HEAD_X = 6;
+const PRONE_RIFLE_X = 10;
+const PRONE_RIFLE_Y = 0;
+const INFANTRY_RIFLE_LENGTH = 11;
 
 // Скільки вбивств отримує піхота за знищення ворожої піхоти (замість killValue піхоти).
 const INFANTRY_DUEL_KILL_VALUE = 1;
@@ -180,6 +191,14 @@ const PLANE_STATS = {
         health: 3, speed: 75, acceleration: 1.6,
         fireInterval: 0.11,
         halfWidth: 14, halfHeight: 8, crashRadius: 45, crashDamage: 4
+    },
+    // Десантний літак легендарної піхоти (js/airdrop.js): корпус бомбардувальника, без зброї й без легенди.
+    // Не входить у PLANE_KINDS: його немає в повзунках і таблиці рахунку.
+    transport: {
+        name: 'TRANSPORT',
+        health: 8, speed: 125, turnRate: 2.3, wobble: 0.24,
+        trailInterval: 0.055,
+        halfWidth: 28, halfHeight: 13, crashRadius: 85, crashDamage: 10
     }
 };
 
@@ -297,21 +316,43 @@ const LEGEND_SLOWMO_TIME = 0.5;
 const LEGEND_SLOWMO_SCALE = 0.25;
 const LEGEND_BANNER_LIFE = 2.4;
 
-// Граната піхоти (єдиний вид для всієї піхоти).
-const GRENADE_RANGE = 150;
-const GRENADE_RELOAD = 4.5;
-const GRENADE_DAMAGE = 2;
-const GRENADE_RADIUS = 30;
-
-// РПГ легендарної піхоти: швидка пряма ракета по найближчому наземному ворогу.
+// РПГ є в усієї піхоти: швидка пряма ракета, спершу по техніці. Б'є ближче за гвинтівку (range піхоти),
+// тож піхотинець спершу лежачи стріляє з гвинтівки і підповзає, а з РПГ б'є вже зблизька.
 const RPG_RANGE = 230;
-const RPG_RELOAD = 4;
+const RPG_RELOAD = 6;
 const RPG_SPEED = 320;
 const RPG_DAMAGE = 5;
 const RPG_RADIUS = 38;
 // Піхотинець встає за RPG_STAND_TIME с до пострілу і стоїть RPG_STAND_HOLD с після нього.
 const RPG_STAND_TIME = 0.7;
 const RPG_STAND_HOLD = 0.6;
+
+// Десант легендарної піхоти: коли ворог ближче за AIRDROP_CALL_RANGE, легенда викликає десантний літак (PLANE_STATS.transport).
+// Він вилітає з-за свого краю карти (AIRDROP_ENTRY_MARGIN), тримає висоту AIRDROP_ALTITUDE над землею, погойдуючись,
+// скидає AIRDROP_TROOPERS парашутистів з кроком AIRDROP_SPACING навколо точки AIRDROP_AHEAD попереду легенди
+// і розвертається назад. Його можна збити. Парашутисти — звичайна піхота (у межах ліміту з налаштувань).
+// AIRDROP_POOL — скільки десантних літаків може бути в повітрі одночасно (на обидві команди).
+const AIRDROP_CALL_RANGE = 400;
+const AIRDROP_FIRST_DELAY = 1;
+const AIRDROP_RELOAD = 14;
+const AIRDROP_TROOPERS = 5;
+const AIRDROP_SPACING = 48;
+const AIRDROP_AHEAD = 30;
+const AIRDROP_ALTITUDE = 230;
+const AIRDROP_ENTRY_MARGIN = 60;
+const AIRDROP_POOL = 6;
+const PARACHUTE_SPEED = 55;
+// Виклик десанту: від легенди вгору біжать хвилі радіосигналу протягом AIRDROP_SIGNAL_TIME с.
+const AIRDROP_SIGNAL_TIME = 1.6;
+const AIRDROP_SIGNAL_WAVES = 3;
+const AIRDROP_SIGNAL_RISE = 38;
+// Парашутист погойдується під куполом: амплітуда (рад) і частота (рад/с).
+const PARACHUTE_SWAY = 0.28;
+const PARACHUTE_TOP = -24;
+const PARACHUTE_SWAY_SPEED = 2.4;
+
+// Піхота стріляє з гвинтівки і по ворожих гелікоптерах, ближчих за INFANTRY_HELI_RANGE (якщо вони ближче за наземну ціль).
+const INFANTRY_HELI_RANGE = 260;
 
 // Багатоствольна стрільба: кутовий розкид стволів і розкид залпу артилерії.
 const MULTISHOT_ANGLE = 0.04;

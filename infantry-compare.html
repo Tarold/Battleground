@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<title>Infantry compare</title>
+<style>
+body { margin: 0; background: #0c0c10; color: #ccc; font: 14px monospace; }
+canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="battlefield" width="900" height="600"></canvas>
+<script src="js/config.js"></script>
+<script src="js/movement.js"></script>
+<script src="js/art.js"></script>
+<script>
+'use strict';
+
+// Перегляд піхоти так, як її малює art.js: стоїть, крок, лежить, РПГ, легенда; знизу збільшено ×3.
+canvas.width = 900;
+canvas.height = 600;
+
+function draw(x, y, team, extra, zoom = 1, time = 0) {
+    context.save();
+    context.translate(x, y);
+    context.scale(zoom, zoom);
+    Art.drawGroundUnit(Object.assign({
+        x: 0, y: 0, team, lane: 2, type: INFANTRY, legendary: false, moving: false,
+        prone: false, rpgStance: 0, animationPhase: 0, dropHeight: 0, aimAngle: team === 0 ? 0 : Math.PI
+    }, extra), time);
+    context.restore();
+}
+
+function label(text, x, y, color = '#ccc', size = 14) {
+    context.fillStyle = color;
+    context.font = `${size}px monospace`;
+    context.textAlign = 'center';
+    context.fillText(text, x, y);
+}
+
+function ground(y) {
+    context.strokeStyle = '#3d473d';
+    context.lineWidth = 1;
+    context.beginPath();
+    context.moveTo(0, y);
+    context.lineTo(canvas.width, y);
+    context.stroke();
+}
+
+const scene = time => [
+    ['стоїть', 0, {}],
+    ['стоїть', 1, {}],
+    ['крок 1', 0, { moving: true }, 0.1],
+    ['крок 2', 0, { moving: true }, 0.32],
+    ['лежить', 0, { prone: true }],
+    ['лежить', 1, { prone: true }],
+    ['легенда', 0, { legendary: true, signalTimer: AIRDROP_SIGNAL_TIME - (time * 0.8) % AIRDROP_SIGNAL_TIME }],
+    ['РПГ', 0, { rpgStance: 0.5 }],
+    ['РПГ', 1, { rpgStance: 0.5 }],
+    ['парашут', 0, { dropHeight: 50 }]
+];
+
+function render(time) {
+    context.fillStyle = '#0c0c10';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    label('ПІХОТА', 450, 30);
+    ground(110);
+
+    scene(time).forEach(([text, team, extra, phase = null], index) => {
+        const x = 50 + index * 88;
+
+        draw(x, 100, team, extra, 1, phase ?? time);
+        label(text, x, 135, '#777', 11);
+    });
+
+    ground(185);
+    draw(90, 175, 0, { type: TANK, aimAngle: 0 });
+    draw(170, 175, 0, {});
+    draw(210, 175, 0, { prone: true });
+    label('масштаб поруч з танком', 160, 210, '#777', 11);
+    // Парашутисти гойдаються й цілять у різні боки.
+    draw(420, 175, 0, { dropHeight: 50, aimAngle: 0.5 }, 1, time);
+    draw(480, 175, 1, { dropHeight: 50, aimAngle: Math.PI - 0.3, animationPhase: 2 }, 1, time);
+    draw(560, 175, 0, { aimAngle: -0.9 });
+    draw(620, 175, 0, { prone: true, aimAngle: -0.5 });
+    label('парашут / по гелікоптеру', 520, 210, '#777', 11);
+
+    ground(400);
+    draw(120, 385, 0, {}, 3);
+    draw(290, 385, 0, { moving: true }, 3, 0.32);
+    draw(470, 385, 0, { prone: true }, 3);
+    draw(650, 385, 0, { rpgStance: 0.5 }, 3);
+    draw(820, 385, 0, { dropHeight: 50, aimAngle: 0.4 }, 3, time);
+    draw(780, 565, 0, { legendary: true, signalTimer: AIRDROP_SIGNAL_TIME - (time * 0.8) % AIRDROP_SIGNAL_TIME }, 3);
+    draw(560, 565, 0, { legendary: true, prone: true }, 3);
+    label('парашут', 820, 440, '#777', 11);
+    label('стоїть', 120, 440, '#777', 11);
+    label('крок', 290, 440, '#777', 11);
+    label('лежить', 470, 440, '#777', 11);
+    label('РПГ', 650, 440, '#777', 11);
+
+    context.save();
+    context.translate(250, 530);
+    context.scale(3, 3);
+    draw(0, 0, 0, { dropHeight: 50, aimAngle: 0.4 }, 1, time);
+    draw(130, 0, 1, { dropHeight: 50, aimAngle: Math.PI - 0.4, animationPhase: 1.5 }, 1, time);
+    context.restore();
+
+    requestAnimationFrame(now => render(now / 1000));
+}
+
+render(0);
+</script>
+</body>
+</html>
