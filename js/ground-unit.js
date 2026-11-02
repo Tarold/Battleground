@@ -31,6 +31,10 @@ class GroundUnit {
         this.moving = false;
         this.prone = false;
         this.proneTimer = 0;
+        // Висота парашутиста над лінією; 0 = на землі.
+        this.dropHeight = 0;
+        // Скільки ще тривають хвилі сигналу виклику десанту.
+        this.signalTimer = 0;
     }
 
     get stats() {
@@ -72,19 +76,31 @@ class GroundUnit {
         return INFANTRY;
     }
 
-    // Розгортає юніта у першому вільному слоті пулу (якщо такий є).
+    // Розгортає юніта у першому вільному слоті пулу (якщо такий є) і повертає його, інакше null.
     static deploy(team, type, lane, initialPosition = null) {
         const limit = settings.counts[ENTITY_SETTINGS[type].id];
         const alive = battle.groundUnits.filter(candidate => candidate.active && candidate.type === type).length;
 
         if (alive >= limit) {
-            return;
+            return null;
         }
 
         const unit = battle.groundUnits.find(candidate => !candidate.active);
 
         if (unit) {
             unit.spawn(team, type, lane, initialPosition);
+        }
+
+        return unit ?? null;
+    }
+
+    // Парашутист з'являється на висоті скидання (y) і спускається на свою лінію.
+    static deployParatrooper(team, lane, x, y) {
+        const unit = GroundUnit.deploy(team, INFANTRY, lane, x);
+
+        if (unit) {
+            unit.dropHeight = Math.max(0, world.laneLevel(lane) - y);
+            unit.y = world.laneLevel(lane) - unit.dropHeight;
         }
     }
 
@@ -115,6 +131,8 @@ class GroundUnit {
         this.moving = false;
         this.prone = false;
         this.proneTimer = 0;
+        this.dropHeight = 0;
+        this.signalTimer = 0;
     }
 
     // attacker — сутність, якій зараховується вбивство (може бути null).
@@ -145,6 +163,10 @@ class GroundUnit {
     becomeLegend() {
         this.legendary = true;
         this.health = this.stats.legend.health ?? this.health;
+
+        if (this.perk.airdrop) {
+            this.specialReload = AIRDROP_FIRST_DELAY;
+        }
         spawnLegendEffect(this.x, this.y, this.stats.name);
     }
 
@@ -154,10 +176,16 @@ class GroundUnit {
     }
 
     update(deltaTime) {
+        if (this.dropHeight > 0) {
+            this.descend(deltaTime);
+            return;
+        }
+
         this.y = world.laneLevel(this.lane);
         this.reload -= deltaTime;
         this.specialReload -= deltaTime;
         this.rpgReload -= deltaTime;
+        this.signalTimer = Math.max(0, this.signalTimer - deltaTime);
         this.moving = false;
 
         if (this.type === INFANTRY) {
@@ -169,11 +197,11 @@ class GroundUnit {
         }
 
         if (this.type === INFANTRY) {
-            this.tryThrowGrenade();
+            this.tryFireRpg();
         }
 
-        if (this.perk?.rpg) {
-            this.tryFireRpg();
+        if (this.perk?.airdrop) {
+            this.tryCallAirdrop();
         }
 
         if (this.salvoLeft > 0) {
@@ -188,8 +216,18 @@ class GroundUnit {
         }
 
         if (!target) {
+            if (this.type === INFANTRY) {
+                // Без цілі гвинтівка опущена горизонтально вперед.
+                this.aimAngle = this.team === 0 ? 0 : Math.PI;
+            }
+
             this.advance(deltaTime);
             return;
+        }
+
+        // Піхота під час перестрілки з гвинтівки підповзає, поки ціль не опиниться на дистанції РПГ.
+        if (this.type === INFANTRY && !airborne && Math.abs(target.x - this.x) > INFANTRY_CRAWL_STOP) {
+            this.advance(deltaTime);
         }
 
         if (this.type === ANTIAIRCRAFT) {
@@ -257,6 +295,13 @@ class GroundUnit {
         }
     }
 
+    // Плече й довжина гвинтівки піхотинця (стоячи чи лежачи), так само як її малює Art.drawInfantry.
+    get rifle() {
+        return this.prone
+            ? { x: PRONE_RIFLE_X, y: PRONE_RIFLE_Y, length: INFANTRY_RIFLE_LENGTH }
+            : { x: INFANTRY_RIFLE_X, y: INFANTRY_RIFLE_Y, length: INFANTRY_RIFLE_LENGTH };
+    }
+
     // Піхота лягає, побачивши ворога, і встає лише через PRONE_HOLD_TIME після того, як той зник.
     updateProne(deltaTime) {
         if (this.seesEnemy()) {
@@ -273,6 +318,26 @@ class GroundUnit {
     // Літаки ігноруються: лягають лише від наземних ворогів.
     seesEnemy() {
         return this.findGroundTarget(PRONE_SIGHT_RANGE) !== null;
+    }
+
+    // Парашутист спускається і стріляє з гвинтівки, але не рухається і не б'є з РПГ, поки не торкнеться землі.
+    descend(deltaTime) {
+        this.dropHeight = Movement.descendParachute(this.dropHeight, deltaTime);
+        this.y = world.laneLevel(this.lane) - this.dropHeight;
+        this.reload -= deltaTime;
+
+        const { target, airborne } = this.selectTarget();
+
+        if (!target) {
+            this.aimAngle = this.team === 0 ? 0 : Math.PI;
+            return;
+        }
+
+        this.aimAngle = Math.atan2(Movement.aimPointY(target) - this.y, target.x - this.x);
+
+        if (this.reload <= 0) {
+            this.fire(target, airborne);
+        }
     }
 
     advance(deltaTime) {
@@ -305,6 +370,17 @@ class GroundUnit {
             return { target: this.findGroundTarget(ANTIAIRCRAFT_GROUND_RANGE), airborne: false };
         }
 
+        if (this.type === INFANTRY) {
+            const groundTarget = this.findGroundTarget(this.stats.range);
+            const helicopter = this.findHelicopter(INFANTRY_HELI_RANGE);
+            const closer = helicopter && (!groundTarget ||
+                Math.hypot(helicopter.x - this.x, helicopter.y - this.y) < Math.abs(groundTarget.x - this.x));
+
+            return closer
+                ? { target: helicopter, airborne: true }
+                : { target: groundTarget, airborne: false };
+        }
+
         const minimumDistance = this.type === ARTILLERY ? ARTILLERY_MINIMUM_RANGE : 0;
 
         return {
@@ -335,6 +411,27 @@ class GroundUnit {
         }
 
         return nearestTarget;
+    }
+
+    // Найближчий ворожий гелікоптер у радіусі range (для гвинтівок піхоти).
+    findHelicopter(range) {
+        let nearest = null;
+        let nearestDistance = range;
+
+        for (const plane of battle.planes) {
+            if (plane.kind !== 'heli' || plane.team === this.team || plane.state !== PLANE_FLYING) {
+                continue;
+            }
+
+            const distance = Math.hypot(plane.x - this.x, plane.y - this.y);
+
+            if (distance < nearestDistance) {
+                nearest = plane;
+                nearestDistance = distance;
+            }
+        }
+
+        return nearest;
     }
 
     // Зенітка в першу чергу бере бомбардувальники, інакше — найближчий літак.
@@ -392,7 +489,7 @@ class GroundUnit {
             return;
         }
 
-        const muzzleY = this.y - (this.type === INFANTRY ? (this.prone ? 3 : 7) : this.type === TANK ? -TANK_BARREL_Y : 13);
+        const muzzleY = this.y - (this.type === INFANTRY ? -this.rifle.y : this.type === TANK ? -TANK_BARREL_Y : 13);
         const aim = Movement.groundShot(this, target, muzzleY, airborne);
 
         if (this.type === ANTIAIRCRAFT || (this.type === ARTILLERY && !this.perk?.artilleryRockets)) {
@@ -415,7 +512,7 @@ class GroundUnit {
             }
         }
 
-        // Снаряди САУ, танка і зенітки вилітають з кінця ствола, як його малює Art.
+        // Кулі й снаряди вилітають з кінця гвинтівки чи ствола, як їх малює Art.
         const howitzer = this.type === ARTILLERY;
         const barrel = howitzer
             ? { x: ARTILLERY_BARREL_X, y: ARTILLERY_BARREL_Y, length: ARTILLERY_BARREL_LENGTH }
@@ -423,14 +520,10 @@ class GroundUnit {
                 ? { x: TANK_BARREL_X, y: TANK_BARREL_Y, length: TANK_BARREL_LENGTH }
                 : this.type === ANTIAIRCRAFT
                     ? { x: AA_GUN_X, y: AA_GUN_Y, length: AA_GUN_GAP + AA_GUN_LENGTH }
-                    : null;
+                    : this.rifle;
         const direction = this.team === 0 ? 1 : -1;
-        const muzzleX = barrel
-            ? this.x + direction * barrel.x + Math.cos(this.aimAngle) * barrel.length
-            : this.x + Math.cos(this.aimAngle) * 19;
-        const shellY = barrel
-            ? this.y + barrel.y + Math.sin(this.aimAngle) * barrel.length
-            : muzzleY;
+        const muzzleX = this.x + direction * barrel.x + Math.cos(this.aimAngle) * barrel.length;
+        const shellY = this.y + barrel.y + Math.sin(this.aimAngle) * barrel.length;
         const heavy = this.type !== INFANTRY;
         const shots = this.perk?.shots ?? 1;
 
@@ -523,9 +616,9 @@ class GroundUnit {
         };
     }
 
-    // РПГ легендарної піхоти: пряма ракета по найближчому наземному ворогу.
+    // РПГ піхоти: пряма ракета, спершу по техніці, інакше по найближчому наземному ворогу.
     tryFireRpg() {
-        const target = this.findGroundTarget(RPG_RANGE);
+        const target = this.findGroundTarget(RPG_RANGE, 0, true) ?? this.findGroundTarget(RPG_RANGE);
 
         if (!target) {
             return;
@@ -563,37 +656,21 @@ class GroundUnit {
         spawnSmoke(this.x, muzzleY, -Math.cos(angle) * 30, -10, true, 0.5);
     }
 
-    // Граната піхоти: навісом по найближчому наземному ворогу (техніка чи піхота).
-    tryThrowGrenade() {
-        if (this.specialReload > 0) {
+    // Легендарна піхота, побачивши ворога, викликає транспортник з десантом попереду себе.
+    tryCallAirdrop() {
+        if (this.specialReload > 0 || !this.findGroundTarget(AIRDROP_CALL_RANGE)) {
             return;
         }
 
-        const target = this.findGroundTarget(GRENADE_RANGE);
+        const direction = this.team === 0 ? 1 : -1;
+        const called = Airdrop.call(this.team, this.lane, this.x + direction * AIRDROP_AHEAD);
 
-        if (!target) {
-            return;
+        // Якщо всі літаки зайняті, легенда пробує знову за секунду.
+        this.specialReload = called ? AIRDROP_RELOAD + Math.random() * 2 : 1;
+
+        if (called) {
+            this.signalTimer = AIRDROP_SIGNAL_TIME;
         }
-
-        const startY = this.y - 10;
-        const shot = Movement.grenadeShot(target.x - this.x, Movement.aimPointY(target) - startY);
-
-        this.specialReload = GRENADE_RELOAD + Math.random();
-
-        Projectile.fire({
-            x: this.x,
-            y: startY,
-            velocityX: shot.velocityX,
-            velocityY: shot.velocityY,
-            team: this.team,
-            owner: this,
-            damage: GRENADE_DAMAGE,
-            heavy: true,
-            shell: true,
-            gravity: shot.gravity,
-            explosionRadius: shot.explosionRadius,
-            targetLane: target.lane
-        });
     }
 
     // Легендарна зенітка запускає серію ракет по одній, з інтервалом.

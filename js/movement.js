@@ -10,6 +10,11 @@ const Movement = {
         unit.x += direction * UNIT_STATS[unit.type].speed * deltaTime;
     },
 
+    // Нова висота парашутиста над лінією після кроку спуску.
+    descendParachute(height, deltaTime) {
+        return Math.max(0, height - PARACHUTE_SPEED * deltaTime);
+    },
+
     isOutsideField(unit) {
         return unit.x < 25 || unit.x > world.width - 25;
     },
@@ -125,6 +130,21 @@ const Movement = {
         plane.angle += angleDifference * deltaTime * stats.turnRate * (pursuing ? PURSUIT_TURN_FACTOR : 1);
     },
 
+    // Десантний літак тримає курс heading (після скидання — назад) і висоту скидання, погойдуючись як бомбардувальник.
+    // Розворот назад — плавна дуга з тією ж швидкістю повороту.
+    steerAirdrop(plane, deltaTime, time) {
+        const stats = plane.stats;
+        const climb = clamp((world.groundLevel() - AIRDROP_ALTITUDE - plane.y) * 0.01, -0.3, 0.3);
+        const wave = Math.sin(time * 1.6 + plane.phase) * stats.wobble;
+        const desiredAngle = Math.atan2(climb, plane.heading) + wave;
+        const angleDifference = Math.atan2(
+            Math.sin(desiredAngle - plane.angle),
+            Math.cos(desiredAngle - plane.angle)
+        );
+
+        plane.angle += angleDifference * deltaTime * stats.turnRate;
+    },
+
     // Літак гравця летить на курсор; біля землі, стелі та країв поля вирівнюється.
     steerPlayerPlane(plane, targetX, targetY, deltaTime) {
         const floor = world.groundLevel();
@@ -235,12 +255,6 @@ const Movement = {
         );
 
         return this.lobbedShot(horizontalDistance, verticalDistance, flightTime, ARTILLERY_ROCKET_RADIUS);
-    },
-
-    grenadeShot(horizontalDistance, verticalDistance) {
-        const flightTime = clamp(Math.abs(horizontalDistance) / 120, 0.5, 1.3);
-
-        return this.lobbedShot(horizontalDistance, verticalDistance, flightTime, GRENADE_RADIUS);
     },
 
     // Висота точки прицілу: центр хітбокса цілі (лежача піхота нижча за стоячу).

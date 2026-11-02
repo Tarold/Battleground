@@ -30,10 +30,14 @@ const battle = {
     smoke: Array.from({ length: 1000 }, () => new Smoke()),
     projectiles: Array.from({ length: 600 }, () => new Projectile()),
     groundUnits: Array.from({ length: 150 }, () => new GroundUnit()),
-    // Пул літаків розрахований на максимум повзунка: винищувачі, бомбардувальники, гелікоптери (порядок PLANE_KINDS).
-    planes: PLANE_KINDS.flatMap(kind =>
-        Array.from({ length: settings.maxCount(kind) }, (_, index) =>
-            kind === 'heli' ? new Helicopter(index) : new Plane(index, kind))),
+    // Пул літаків розрахований на максимум повзунка: винищувачі, бомбардувальники, гелікоптери (порядок PLANE_KINDS),
+    // наприкінці — десантні літаки легендарної піхоти (вільні стоять у PLANE_RESPAWNING).
+    planes: [
+        ...PLANE_KINDS.flatMap(kind =>
+            Array.from({ length: settings.maxCount(kind) }, (_, index) =>
+                kind === 'heli' ? new Helicopter(index) : new Plane(index, kind))),
+        ...Array.from({ length: AIRDROP_POOL }, (_, index) => new Airdrop(index))
+    ],
     banners: Array.from({ length: 8 }, () => new Banner()),
     slowTimer: 0,
     flash: 0,
@@ -148,7 +152,7 @@ const battle = {
         }
 
         for (const plane of this.planes) {
-            if (plane.team === team && plane.state !== PLANE_RESPAWNING) {
+            if (plane.team === team && plane.state !== PLANE_RESPAWNING && PLANE_KINDS.includes(plane.kind)) {
                 const row = rows[UNIT_STATS.length + PLANE_KINDS.indexOf(plane.kind)];
                 row.kills = Math.max(row.kills, plane.kills);
                 row.legendary = row.legendary || plane.legendary;
@@ -216,6 +220,11 @@ const battle = {
         const used = Object.fromEntries(PLANE_KINDS.map(kind => [kind, 0]));
 
         for (const plane of this.planes) {
+            // Десантні літаки не регулюються повзунками.
+            if (!PLANE_KINDS.includes(plane.kind)) {
+                continue;
+            }
+
             const enabled = used[plane.kind]++ < settings.counts[plane.kind];
 
             if (enabled === plane.enabled) {
