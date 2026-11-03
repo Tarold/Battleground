@@ -289,7 +289,8 @@ const AA_MISSILE_RANGE = 580;
 const AA_MISSILE_RELOAD = 7;
 const AA_MISSILE_SPEED = 250;
 const AA_MISSILE_TURN_RATE = 2.2;
-const AA_MISSILE_INTERVAL = 0.7;
+// Пауза між ракетами однієї серії, щоб пуски не зливалися в один.
+const AA_MISSILE_INTERVAL = 0.3;
 // Одна ракета ППО вбиває звичайний винищувач (HP 6), але не легендарний (HP 9): для нього потрібні дві.
 // Радіо-підрив діє на відстані до 0.55 радіуса, тож мінімальна шкода ≈ 0.72 від повної.
 const AA_MISSILE_DAMAGE = 8.8;
