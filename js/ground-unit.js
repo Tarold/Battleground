@@ -591,7 +591,7 @@ class GroundUnit {
         };
     }
 
-    // РПГ піхоти: пряма ракета, спершу по техніці, інакше по найближчому наземному ворогу.
+    // РПГ піхоти: ракета по дузі (Movement.rpgShot), спершу по техніці, інакше по найближчому наземному ворогу.
     tryFireRpg() {
         const target = this.findGroundTarget(RPG_RANGE, 0, true) ?? this.findGroundTarget(RPG_RANGE);
 
@@ -609,15 +609,17 @@ class GroundUnit {
         }
 
         const muzzleY = this.y - 10;
-        const angle = Math.atan2(Movement.aimPointY(target) - muzzleY, target.x - this.x);
+        const shot = Movement.rpgShot(target.x - this.x, Movement.aimPointY(target) - muzzleY);
+        const angle = Math.atan2(shot.velocityY, shot.velocityX);
 
         this.rpgReload = RPG_RELOAD + Math.random();
 
         Projectile.fire({
             x: this.x,
             y: muzzleY,
-            velocityX: Math.cos(angle) * RPG_SPEED,
-            velocityY: Math.sin(angle) * RPG_SPEED,
+            velocityX: shot.velocityX,
+            velocityY: shot.velocityY,
+            gravity: shot.gravity,
             team: this.team,
             owner: this,
             damage: RPG_DAMAGE,

@@ -320,11 +320,17 @@ const LEGEND_SLOWMO_TIME = 0.5;
 const LEGEND_SLOWMO_SCALE = 0.25;
 const LEGEND_BANNER_LIFE = 2.4;
 
-// РПГ є в усієї піхоти: швидка пряма ракета, спершу по техніці. Б'є ближче за гвинтівку (range піхоти),
+// РПГ є в усієї піхоти: ракета летить по дузі, спершу по техніці. Б'є ближче за гвинтівку (range піхоти),
 // тож піхотинець спершу лежачи стріляє з гвинтівки і підповзає, а з РПГ б'є вже зблизька.
 const RPG_RANGE = 230;
 const RPG_RELOAD = 6;
 const RPG_SPEED = 320;
+// Кут пуску РПГ росте з дистанцією від RPG_MIN_ELEVATION упритул до RPG_MAX_ELEVATION на дальності гвинтівки (рад),
+// а швидкість підбирається під дугу (RPG_SPEED — найбільша). Гравітація така, що найдальший постріл
+// падає саме на дальності гвинтівки — далі ракета не долітає.
+const RPG_MIN_ELEVATION = 2.5 * Math.PI / 180;
+const RPG_MAX_ELEVATION = 7.5 * Math.PI / 180;
+const RPG_GRAVITY = RPG_SPEED * RPG_SPEED * Math.sin(2 * RPG_MAX_ELEVATION) / UNIT_STATS[INFANTRY].range;
 const RPG_DAMAGE = 5;
 const RPG_RADIUS = 38;
 // Піхотинець встає за RPG_STAND_TIME с до пострілу і стоїть RPG_STAND_HOLD с після нього.

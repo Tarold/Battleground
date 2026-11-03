@@ -257,6 +257,24 @@ const Movement = {
         return this.lobbedShot(horizontalDistance, verticalDistance, flightTime, ARTILLERY_ROCKET_RADIUS);
     },
 
+    // Ракета РПГ: кут залежить від дистанції (RPG_MIN..MAX_ELEVATION), швидкість — така, щоб дуга прийшла в ціль.
+    // Далі за дальність гвинтівки не цілиться: стріляє як на межу, і ракета падає там.
+    rpgShot(horizontalDistance, verticalDistance) {
+        const distance = clamp(Math.abs(horizontalDistance), 1, UNIT_STATS[INFANTRY].range);
+        const share = distance / UNIT_STATS[INFANTRY].range;
+        const elevation = RPG_MIN_ELEVATION + (RPG_MAX_ELEVATION - RPG_MIN_ELEVATION) * share;
+        const cos = Math.cos(elevation);
+        // Ціль нижче дула (verticalDistance > 0) — дуга коротша; знаменник не даємо звести до нуля впритул.
+        const rise = Math.max(1, distance * Math.tan(elevation) + verticalDistance);
+        const speed = Math.min(RPG_SPEED, Math.sqrt(RPG_GRAVITY * distance * distance / (2 * cos * cos * rise)));
+
+        return {
+            velocityX: Math.sign(horizontalDistance || 1) * cos * speed,
+            velocityY: -Math.sin(elevation) * speed,
+            gravity: RPG_GRAVITY
+        };
+    },
+
     // Висота точки прицілу: центр хітбокса цілі (лежача піхота нижча за стоячу).
     aimPointY(target) {
         return target.y - (target.prone ? 3 : 7);
