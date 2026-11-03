@@ -349,6 +349,7 @@ const AIRDROP_SIGNAL_RISE = 38;
 // Парашутист погойдується під куполом: амплітуда (рад) і частота (рад/с).
 const PARACHUTE_SWAY = 0.28;
 const PARACHUTE_TOP = -24;
+const AIRDROP_SIGNAL_MAX_WIDTH = 3; // скільки рисок '‾' у верхівці найширшої хвилі
 const PARACHUTE_SWAY_SPEED = 2.4;
 
 // Піхота стріляє з гвинтівки і по ворожих гелікоптерах, ближчих за INFANTRY_HELI_RANGE (якщо вони ближче за наземну ціль).

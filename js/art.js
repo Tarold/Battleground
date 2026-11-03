@@ -175,12 +175,10 @@ const Art = {
         context.fillRect(x - 5, y - 11, 10, 4);
     },
 
-    // Хвилі радіосигналу виклику десанту: дуги, що піднімаються від голови і розширюються, згасаючи.
+    // Хвилі радіосигналу виклику десанту: символьні дуги '/‾\', що піднімаються від голови і розширюються, згасаючи.
     drawSignalWaves(x, y, timer) {
         const elapsed = AIRDROP_SIGNAL_TIME - timer;
         const alpha = context.globalAlpha;
-
-        context.lineWidth = 2;
 
         for (let wave = 0; wave < AIRDROP_SIGNAL_WAVES; wave++) {
             const progress = elapsed * 1.5 - wave / AIRDROP_SIGNAL_WAVES;
@@ -189,12 +187,11 @@ const Art = {
                 continue;
             }
 
-            const radius = 6 + progress * 16;
+            // Дуга ширшає, додаючи верхні риски між схилами.
+            const top = '‾'.repeat(Math.round(progress * AIRDROP_SIGNAL_MAX_WIDTH));
 
             context.globalAlpha = alpha * (1 - progress);
-            context.beginPath();
-            context.arc(x, y - progress * AIRDROP_SIGNAL_RISE + radius, radius, Math.PI * 1.2, Math.PI * 1.8);
-            context.stroke();
+            context.fillText('/' + top + '\\', x, y - progress * AIRDROP_SIGNAL_RISE + 8);
         }
 
         context.globalAlpha = alpha;
