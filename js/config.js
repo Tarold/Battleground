@@ -60,12 +60,12 @@ const LANE_SCALES = [0.78, 0.9, 1];
 // Параметри наземних юнітів, індекс = тип юніта.
 // killValue = скільки вбивств зараховується тому, хто знищив цього юніта (legend.killValue — якщо він легенда).
 // legend: kills = скільки вбивств до статусу легенди, health = HP легенди,
-// решта полів — перки (shots, artilleryRockets = залп ракет, burst = серія пострілів по черзі, missiles, airdrop = виклик десанту, rockets, regen = HP/с, instantLock = без відліку захоплення). Без health легенда не отримує бонусу HP.
+// решта полів — перки (shots, artilleryRockets = залп ракет, pierce = скільки ворогів прошиває снаряд, damage = шкода пострілу легенди, missiles, airdrop = виклик десанту, rockets, regen = HP/с, instantLock = без відліку захоплення). Без health легенда не отримує бонусу HP.
 const UNIT_STATS = [
     { name: 'INFANTRY', health: 2, speed: 30, range: 290, reload: 0.8,  damage: 1, killValue: 0.5,
         legend: { kills: 2, health: 5, airdrop: true, killValue: 0.5 } },
-    { name: 'TANK', health: 9, speed: 22, range: 245, reload: 1.65, damage: 3, killValue: 1,
-        legend: { kills: 3, health: 16, burst: 2 } },
+    { name: 'TANK', health: 14, speed: 22, range: 245, reload: 1.65, damage: 3, killValue: 1,
+        legend: { kills: 3, health: 24, pierce: 1, damage: 5 } },
     { name: 'ANTI-AIR', health: 4, speed: 25, range: 430, reload: 0.5,  damage: 2, killValue: 1,
         legend: { kills: 5, health: 7, missiles: 2, turretFactor: 2 } },
     { name: 'ARTILLERY', health: 5, speed: 17, range: 650, reload: 3.8,  damage: 6, killValue: 1,
@@ -148,6 +148,11 @@ const ARTILLERY_EXPLOSION_RADIUS = 72;
 const TANK_BARREL_X = 9;
 const TANK_BARREL_Y = -14;
 const TANK_BARREL_LENGTH = 22;
+
+// Вигляд легендарного важкого танка: довша й товща гармата з дульним гальмом, ширший корпус (півширина хітбокса).
+const HEAVY_TANK_BARREL_X = 15;
+const HEAVY_TANK_BARREL_LENGTH = 30;
+const HEAVY_TANK_HIT_HALF_WIDTH = 31;
 
 // Вигляд САУ: вісь ствола (зсув уперед від центру, висота), довжина, підйом ствола в русі (рад).
 const ARTILLERY_BARREL_X = 8;
@@ -285,8 +290,6 @@ const AA_MISSILE_RELOAD = 7;
 const AA_MISSILE_SPEED = 250;
 const AA_MISSILE_TURN_RATE = 2.2;
 const AA_MISSILE_INTERVAL = 0.7;
-// Інтервал між пострілами серії легендарного танка (с).
-const TANK_BURST_INTERVAL = 0.22;
 // Одна ракета ППО вбиває звичайний винищувач (HP 6), але не легендарний (HP 9): для нього потрібні дві.
 // Радіо-підрив діє на відстані до 0.55 радіуса, тож мінімальна шкода ≈ 0.72 від повної.
 const AA_MISSILE_DAMAGE = 8.8;
@@ -346,10 +349,10 @@ const PARACHUTE_SPEED = 55;
 const AIRDROP_SIGNAL_TIME = 1.6;
 const AIRDROP_SIGNAL_WAVES = 3;
 const AIRDROP_SIGNAL_RISE = 38;
+const AIRDROP_SIGNAL_MAX_WIDTH = 3; // скільки рисок '‾' у верхівці найширшої хвилі
 // Парашутист погойдується під куполом: амплітуда (рад) і частота (рад/с).
 const PARACHUTE_SWAY = 0.28;
 const PARACHUTE_TOP = -24;
-const AIRDROP_SIGNAL_MAX_WIDTH = 3; // скільки рисок '‾' у верхівці найширшої хвилі
 const PARACHUTE_SWAY_SPEED = 2.4;
 
 // Піхота стріляє з гвинтівки і по ворожих гелікоптерах, ближчих за INFANTRY_HELI_RANGE (якщо вони ближче за наземну ціль).

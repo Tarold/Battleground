@@ -37,6 +37,8 @@ const Art = {
 
     VEHICLE_SPRITES: {
         [TANK]: { turret: '<0>', turretX: -2, turretY: -10, top: '======', topY: -3, bottom: '(oooo)' },
+        // Легендарний важкий танк: широка башта, довший корпус і більше котків.
+        heavyTank: { turret: '[###]', turretX: -3, turretY: -10, top: '[======]', topY: -3, bottom: '(oooooo)' },
         // Пікап носом праворуч (для червоних текст дзеркалиться): кабіна спереду, турелька в кузові; причіп — у легенди.
         [ANTIAIRCRAFT]: { wheels: 'OO---O', body: '[==|#\\', turret: '(o)', turretX: -8, trailer: '[==]', trailerWheels: 'O' },
         // САУ: башта ззаду; у легендарної РСЗВ замість башти кабіна спереду (X — уперед від центру).
@@ -341,30 +343,61 @@ const Art = {
         context.stroke();
     },
 
-    // Танк: башта по центру, гладкий ствол; у легенди (серія пострілів) — два паралельні стволи.
+    // Танк: башта по центру, гладкий ствол; легенда — важкий танк з довгою товстою гарматою.
     drawTank(unit, direction) {
-        const sprite = this.VEHICLE_SPRITES[TANK];
+        const sprite = unit.legendary ? this.VEHICLE_SPRITES.heavyTank : this.VEHICLE_SPRITES[TANK];
         const angle = this.barrelAngle(unit, direction);
-        const cos = Math.cos(angle);
-        const sin = Math.sin(angle);
-        const baseX = direction * TANK_BARREL_X;
-        const offsets = unit.legendary ? [-2, 2.5] : [0];
 
         context.fillText(sprite.bottom, 0, 5);
         context.fillText(sprite.top, 0, sprite.topY);
         context.fillText(sprite.turret, direction * sprite.turretX, sprite.turretY);
 
-        context.lineWidth = 2.5;
-        context.beginPath();
-
-        for (const offset of offsets) {
-            const startX = baseX - sin * offset;
-            const startY = TANK_BARREL_Y + cos * offset;
-
-            context.moveTo(startX, startY);
-            context.lineTo(startX + cos * TANK_BARREL_LENGTH, startY + sin * TANK_BARREL_LENGTH);
+        if (unit.legendary) {
+            this.drawHeavyCannon(direction * HEAVY_TANK_BARREL_X, TANK_BARREL_Y, angle, HEAVY_TANK_BARREL_LENGTH);
+            return;
         }
 
+        context.lineWidth = 2.5;
+        context.beginPath();
+        context.moveTo(direction * TANK_BARREL_X, TANK_BARREL_Y);
+        context.lineTo(
+            direction * TANK_BARREL_X + Math.cos(angle) * TANK_BARREL_LENGTH,
+            TANK_BARREL_Y + Math.sin(angle) * TANK_BARREL_LENGTH
+        );
+        context.stroke();
+    },
+
+    // Гармата важкого танка: товста біля башти, тонша до дула, з ежектором посередині й дульним гальмом.
+    drawHeavyCannon(baseX, baseY, angle, length) {
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        const point = distance => [baseX + cos * distance, baseY + sin * distance];
+        const crossBar = (distance, half) => {
+            const [x, y] = point(distance);
+            context.moveTo(x - sin * half, y + cos * half);
+            context.lineTo(x + sin * half, y - cos * half);
+        };
+
+        context.lineWidth = 4.5;
+        context.beginPath();
+        context.moveTo(...point(0));
+        context.lineTo(...point(length * 0.45));
+        context.stroke();
+
+        context.lineWidth = 3.5;
+        context.beginPath();
+        context.moveTo(...point(length * 0.45));
+        context.lineTo(...point(length));
+        context.stroke();
+
+        context.lineWidth = 3;
+        context.beginPath();
+        crossBar(length * 0.55, 3);
+        context.stroke();
+
+        context.lineWidth = 4;
+        context.beginPath();
+        crossBar(length - 2, 3.5);
         context.stroke();
     },
 
@@ -574,6 +607,10 @@ const Art = {
 
         if (projectile.bomb) {
             return '<●>';
+        }
+
+        if (projectile.pierce > 0 || projectile.pierced.length > 0) {
+            return '—●';
         }
 
         if (projectile.shell) {

@@ -57,6 +57,9 @@ class Projectile {
         this.impactY = 0;
         this.life = 0;
         this.targetLane = -1;
+        // Скільки ще ворогів прошиє бронебійний снаряд і кого вже прошив (щоб не бити двічі).
+        this.pierce = 0;
+        this.pierced = [];
     }
 
     // Бере наступний снаряд із кільцевого пулу та запускає його.
@@ -71,7 +74,7 @@ class Projectile {
         heavy = false, bomb = false, nuke = false, owner = null, shell = false,
         rocket = false, big = false, homingTarget = null, turnRate = 0,
         planeBlastRadius = 0, life = null,
-        gravity = 0, explosionRadius = 0, targetLane = -1
+        gravity = 0, explosionRadius = 0, targetLane = -1, pierce = 0
     }) {
         this.active = true;
         this.x = x;
@@ -100,6 +103,8 @@ class Projectile {
         this.gravity = gravity;
         this.explosionRadius = explosionRadius;
         this.targetLane = targetLane;
+        this.pierce = pierce;
+        this.pierced.length = 0;
         this.impactY = world.impactLevel(targetLane);
         this.life = life ?? (shell || bomb ? 10 : 3);
     }
@@ -244,12 +249,14 @@ class Projectile {
 
     hitGroundUnit() {
         for (const unit of battle.groundUnits) {
-            if (!unit.active || unit.team === this.team || unit.lane !== this.targetLane) {
+            if (!unit.active || unit.team === this.team || unit.lane !== this.targetLane ||
+                this.pierced.includes(unit)) {
                 continue;
             }
 
             const scale = LANE_SCALES[unit.lane];
-            const halfWidth = (unit.prone ? PRONE_HIT_HALF_WIDTH : unit.type === INFANTRY ? 8 : 23) * scale;
+            const vehicleHalfWidth = unit.type === TANK && unit.legendary ? HEAVY_TANK_HIT_HALF_WIDTH : 23;
+            const halfWidth = (unit.prone ? PRONE_HIT_HALF_WIDTH : unit.type === INFANTRY ? 8 : vehicleHalfWidth) * scale;
             const halfHeight = (unit.prone ? PRONE_HIT_HALF_HEIGHT : unit.type === INFANTRY ? 8 : 10) * scale;
             const centerY = unit.y - (unit.prone ? 3 : 6);
 
@@ -261,6 +268,8 @@ class Projectile {
                 this.x = unit.x;
                 this.y = centerY;
                 this.detonate();
+            } else if (this.pierce > 0) {
+                this.pierceThrough(unit);
             } else {
                 this.active = false;
                 spawnSmoke(this.x, this.y, 0, -20, true, 0.5);
@@ -271,6 +280,17 @@ class Projectile {
         }
 
         return false;
+    }
+
+    // Бронебійний снаряд проходить крізь ціль і летить далі горизонтально, до наступного ворога на лінії.
+    pierceThrough(unit) {
+        this.pierce--;
+        this.pierced.push(unit);
+        this.velocityY = 0;
+        this.angle = this.velocityX > 0 ? 0 : Math.PI;
+        spawnExplosion(this.x, this.y, 8);
+        spawnSmoke(this.x, this.y, this.velocityX * 0.1, -20, true, 0.6);
+        unit.takeDamage(this.damage, this.liveOwner);
     }
 
     detonateRocket() {

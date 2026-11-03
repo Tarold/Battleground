@@ -15,8 +15,6 @@ class GroundUnit {
         this.rpgStance = 0;
         this.missilesLeft = 0;
         this.missileTimer = 0;
-        this.burstLeft = 0;
-        this.burstTimer = 0;
         this.salvoLeft = 0;
         this.salvoTimer = 0;
         this.salvoX = 0;
@@ -121,8 +119,6 @@ class GroundUnit {
         this.rpgStance = 0;
         this.missilesLeft = 0;
         this.missileTimer = 0;
-        this.burstLeft = 0;
-        this.burstTimer = 0;
         this.salvoLeft = 0;
         this.kills = 0;
         this.legendary = false;
@@ -210,10 +206,6 @@ class GroundUnit {
         }
 
         const { target, airborne } = this.selectTarget();
-
-        if (this.burstLeft > 0) {
-            this.continueBurst(deltaTime, target, airborne);
-        }
 
         if (!target) {
             if (this.type === INFANTRY) {
@@ -465,25 +457,7 @@ class GroundUnit {
 
     // --- Shooting ----------------------------------------------------------
 
-    // Наступні постріли серії легендарного танка: кожен заново наводиться на ціль.
-    continueBurst(deltaTime, target, airborne) {
-        if (!target) {
-            this.burstLeft = 0;
-            return;
-        }
-
-        this.burstTimer -= deltaTime;
-
-        if (this.burstTimer > 0) {
-            return;
-        }
-
-        this.burstLeft--;
-        this.burstTimer = TANK_BURST_INTERVAL;
-        this.fire(target, airborne, true);
-    }
-
-    fire(target, airborne, followUp = false) {
+    fire(target, airborne) {
         if (this.perk?.artilleryRockets) {
             this.startRocketSalvo(target);
             return;
@@ -503,21 +477,16 @@ class GroundUnit {
             this.aimAngle = Math.atan2(aim.velocityY, aim.velocityX);
         }
 
-        if (!followUp) {
-            this.reload = (this.stats.reload + Math.random() * 0.15) * (this.prone ? PRONE_RELOAD_FACTOR : 1);
-
-            if (this.perk?.burst) {
-                this.burstLeft = this.perk.burst - 1;
-                this.burstTimer = TANK_BURST_INTERVAL;
-            }
-        }
+        this.reload = (this.stats.reload + Math.random() * 0.15) * (this.prone ? PRONE_RELOAD_FACTOR : 1);
 
         // Кулі й снаряди вилітають з кінця гвинтівки чи ствола, як їх малює Art.
         const howitzer = this.type === ARTILLERY;
         const barrel = howitzer
             ? { x: ARTILLERY_BARREL_X, y: ARTILLERY_BARREL_Y, length: ARTILLERY_BARREL_LENGTH }
             : this.type === TANK
-                ? { x: TANK_BARREL_X, y: TANK_BARREL_Y, length: TANK_BARREL_LENGTH }
+                ? this.legendary
+                    ? { x: HEAVY_TANK_BARREL_X, y: TANK_BARREL_Y, length: HEAVY_TANK_BARREL_LENGTH }
+                    : { x: TANK_BARREL_X, y: TANK_BARREL_Y, length: TANK_BARREL_LENGTH }
                 : this.type === ANTIAIRCRAFT
                     ? { x: AA_GUN_X, y: AA_GUN_Y, length: AA_GUN_GAP + AA_GUN_LENGTH }
                     : this.rifle;
@@ -538,8 +507,9 @@ class GroundUnit {
                 velocityY: shot.velocityY,
                 team: this.team,
                 owner: this,
-                damage: this.stats.damage,
+                damage: this.perk?.damage ?? this.stats.damage,
                 heavy,
+                pierce: this.perk?.pierce ?? 0,
                 shell: this.type === ARTILLERY,
                 gravity: shot.gravity,
                 explosionRadius: shot.explosionRadius,
