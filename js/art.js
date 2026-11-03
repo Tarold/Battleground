@@ -133,10 +133,6 @@ const Art = {
             return;
         }
 
-        if (unit.signalTimer > 0) {
-            this.drawSignalWaves(unit.prone ? direction * PRONE_HEAD_X : 0, unit.prone ? -6 : -16, unit.signalTimer);
-        }
-
         if (unit.prone) {
             // Лежачий: тулуб — суцільна лінія вздовж землі, голова попереду, гвинтівка за нею.
             context.fillText('o', direction * PRONE_HEAD_X, 5);
@@ -164,6 +160,13 @@ const Art = {
             this.drawHelmet(0, -5);
         }
 
+        // Виклик десанту: стоїть, тримаючи рацію біля вуха, а від антени біжать хвилі.
+        if (unit.signalTimer > 0) {
+            this.drawRadio(direction);
+            this.drawSignalWaves(direction * RADIO_X, RADIO_Y - RADIO_ANTENNA, unit.signalTimer);
+            return;
+        }
+
         // Для пострілу з РПГ піхотинець кладе трубу на плече замість гвинтівки.
         if (unit.rpgStance > 0) {
             this.drawRpgTube(direction, -6, 0);
@@ -175,6 +178,25 @@ const Art = {
     // Квадратний шолом легенди поверх голови 'o' (y — базова лінія голови).
     drawHelmet(x, y) {
         context.fillRect(x - 5, y - 11, 10, 4);
+    },
+
+    // Рація біля вуха: рука від плеча, корпус-брусок і тонка антена вгору (RADIO_Y — верх корпусу).
+    drawRadio(direction) {
+        const x = direction * RADIO_X;
+
+        context.lineWidth = 2;
+        context.beginPath();
+        context.moveTo(direction * 3, -1);
+        context.lineTo(x, RADIO_Y + RADIO_HEIGHT);
+        context.stroke();
+
+        context.fillRect(x - RADIO_WIDTH / 2, RADIO_Y, RADIO_WIDTH, RADIO_HEIGHT);
+
+        context.lineWidth = 1;
+        context.beginPath();
+        context.moveTo(x, RADIO_Y);
+        context.lineTo(x, RADIO_Y - RADIO_ANTENNA);
+        context.stroke();
     },
 
     // Хвилі радіосигналу виклику десанту: символьні дуги '/‾\', що піднімаються від голови і розширюються, згасаючи.
@@ -190,10 +212,10 @@ const Art = {
             }
 
             // Дуга ширшає, додаючи верхні риски між схилами.
-            const top = '‾'.repeat(Math.round(progress * AIRDROP_SIGNAL_MAX_WIDTH));
+            const top = '‾'.repeat(1 + Math.round(progress * (AIRDROP_SIGNAL_MAX_WIDTH - 1)));
 
             context.globalAlpha = alpha * (1 - progress);
-            context.fillText('/' + top + '\\', x, y - progress * AIRDROP_SIGNAL_RISE + 8);
+            context.fillText('/' + top + '\\', x, y - progress * AIRDROP_SIGNAL_RISE);
         }
 
         context.globalAlpha = alpha;

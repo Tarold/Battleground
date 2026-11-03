@@ -350,6 +350,12 @@ const AIRDROP_SIGNAL_TIME = 1.6;
 const AIRDROP_SIGNAL_WAVES = 3;
 const AIRDROP_SIGNAL_RISE = 38;
 const AIRDROP_SIGNAL_MAX_WIDTH = 3; // скільки рисок '‾' у верхівці найширшої хвилі
+// Рація легенди під час виклику: зсув уперед від центру, верх корпусу, розміри корпусу й довжина антени.
+const RADIO_X = 8;
+const RADIO_Y = -15;
+const RADIO_WIDTH = 4;
+const RADIO_HEIGHT = 8;
+const RADIO_ANTENNA = 8;
 // Парашутист погойдується під куполом: амплітуда (рад) і частота (рад/с).
 const PARACHUTE_SWAY = 0.28;
 const PARACHUTE_TOP = -24;

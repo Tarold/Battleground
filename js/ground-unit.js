@@ -192,12 +192,17 @@ class GroundUnit {
             this.tryLaunchMissile(deltaTime);
         }
 
-        if (this.type === INFANTRY) {
+        if (this.type === INFANTRY && this.signalTimer === 0) {
             this.tryFireRpg();
         }
 
         if (this.perk?.airdrop) {
             this.tryCallAirdrop();
+        }
+
+        // Поки легенда говорить по рації, вона стоїть на місці й не стріляє.
+        if (this.signalTimer > 0) {
+            return;
         }
 
         if (this.salvoLeft > 0) {
@@ -302,9 +307,9 @@ class GroundUnit {
             this.proneTimer = Math.max(0, this.proneTimer - deltaTime);
         }
 
-        // Для пострілу з РПГ піхотинець встає в повний зріст.
+        // Для пострілу з РПГ і виклику десанту по рації піхотинець встає в повний зріст.
         this.rpgStance = Math.max(0, this.rpgStance - deltaTime);
-        this.prone = this.proneTimer > 0 && this.rpgStance === 0;
+        this.prone = this.proneTimer > 0 && this.rpgStance === 0 && this.signalTimer === 0;
     }
 
     // Літаки ігноруються: лягають лише від наземних ворогів.
@@ -640,6 +645,7 @@ class GroundUnit {
 
         if (called) {
             this.signalTimer = AIRDROP_SIGNAL_TIME;
+            this.prone = false;
         }
     }
 
