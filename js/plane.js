@@ -21,6 +21,7 @@ class Plane {
         this.lockTarget = null;
         this.lockTime = 0;
         this.pursuitAngle = null;
+        this.huntingBomber = false;
         this.targetDelay = 0;
         this.burstLeft = FIGHTER_BURST_SIZE;
         this.reload = 0;
@@ -60,6 +61,7 @@ class Plane {
         this.lockTarget = null;
         this.lockTime = 0;
         this.pursuitAngle = null;
+        this.huntingBomber = false;
         this.targetDelay = 0;
         this.burstLeft = FIGHTER_BURST_SIZE;
         this.x = world.basePosition(this.team);
@@ -418,6 +420,11 @@ class Plane {
         let groundTarget = null;
         let targetLane = -1;
 
+        // Поки полює на бомбардувальник, ракети не витрачає на інші цілі.
+        if (this.huntingBomber && !enemyPlane?.bomber) {
+            return;
+        }
+
         if (!enemyPlane) {
             groundTarget = this.findGroundUnitInSights(GROUND_ROCKET_RANGE, 0.85);
 
@@ -557,12 +564,19 @@ class Plane {
         }
 
         if (this.targetDelay > 0) {
+            this.huntingBomber = false;
             this.lockTarget = null;
             this.lockTime = 0;
             return;
         }
 
-        const target = this.findGunTarget();
+        // Ворожий бомбардувальник попереду — головна ціль: решту винищувач бере, лише коли його немає.
+        this.huntingBomber = this.findPursuitTarget()?.bomber ?? false;
+
+        const planeInSights = this.findPlaneInSights(350, 0.93);
+        const target = this.huntingBomber
+            ? (planeInSights?.bomber ? planeInSights : null)
+            : planeInSights ?? this.findGroundUnitInSights(370, 0.94);
 
         if (target === this.lockTarget && target !== null) {
             this.lockTime = Math.min(LOCK_TIME + LOCK_FIRE_DELAY, this.lockTime + deltaTime);
