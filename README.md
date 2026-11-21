@@ -4,6 +4,8 @@ An auto-battler drawn entirely in ASCII art on an HTML5 canvas. Two armies (blue
 
 Written in plain JavaScript, with no frameworks, no build step and no dependencies.
 
+**[▶ Play in the browser](https://tarold.github.io/Battleground/)**. A desktop browser is recommended because player mode uses the mouse and keyboard.
+
 ![Legendary infantry calls in an airdrop while paratroopers descend into the fight](docs/images/battle-airdrop.png)
 
 ![Air combat: homing missiles, bomb runs and helicopters over the frontline](docs/images/battle-air-combat.png)
@@ -45,7 +47,7 @@ Written in plain JavaScript, with no frameworks, no build step and no dependenci
 
 ## Running
 
-There is nothing to install. Clone the repository and open `index.html` in a browser:
+Play online at **https://tarold.github.io/Battleground/**, or run it locally. There is nothing to install: clone the repository and open `index.html` in a browser.
 
 ```bash
 git clone https://github.com/Tarold/Battleground.git
